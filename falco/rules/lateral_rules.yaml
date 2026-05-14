@@ -1,0 +1,21 @@
+- rule: Lateral Movement via nsenter
+  desc: nsenter used inside a container to enter another process namespace
+  condition: >
+    spawned_process and container and
+    proc.name = "nsenter"
+  output: >
+    nsenter lateral movement attempt detected
+    (user=%user.name container=%container.name cmdline=%proc.cmdline scenario=lateral-movement)
+  priority: WARNING
+  tags: [container, lateral_movement, mitre_t1609]
+
+- rule: Unexpected Internal Network Scan
+  desc: Container performing a subnet scan — indicative of reconnaissance for lateral movement
+  condition: >
+    spawned_process and container and
+    proc.name in (nmap, masscan, zmap)
+  output: >
+    Network scan from container (lateral movement recon)
+    (user=%user.name container=%container.name proc=%proc.name args=%proc.args scenario=lateral-movement)
+  priority: WARNING
+  tags: [container, lateral_movement, mitre_t1046]

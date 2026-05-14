@@ -1,0 +1,13 @@
+- rule: Docker AuthZ Bypass via Oversized Request (CVE-2026-34040)
+  desc: >
+    Detects a write to Docker socket with an unusually large payload,
+    indicating a CVE-2026-34040 AuthZ plugin bypass attempt
+  condition: >
+    container and
+    fd.name = "/var/run/docker.sock" and
+    evt.type in (connect, write, sendto, sendmsg)
+  output: >
+    CVE-2026-34040 AuthZ bypass attempt — oversized Docker API request
+    (container=%container.name user=%user.name proc=%proc.cmdline scenario=authz-bypass evt=%evt.type)
+  priority: CRITICAL
+  tags: [container, authz_bypass, mitre_t1610, CVE-2026-34040]

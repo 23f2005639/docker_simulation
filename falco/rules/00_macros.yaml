@@ -1,0 +1,13 @@
+- macro: open_write
+  condition: >
+    evt.type in (open,openat,openat2) and evt.is_open_write=true and fd.num>=0
+
+- macro: open_read
+  condition: >
+    evt.type in (open,openat,openat2) and evt.is_open_read=true and fd.num>=0
+
+- macro: spawned_process
+  condition: evt.type = execve
+
+- macro: container
+  condition: container.id != "host" and container.id != ""

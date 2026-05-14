@@ -1,0 +1,37 @@
+engine:
+  kind: modern_ebpf
+
+plugins:
+  - name: container
+    library_path: /usr/share/falco/plugins/libcontainer.so
+    init_config:
+      with_size: false
+
+load_plugins: [container]
+
+rules_files:
+  - /etc/falco/rules.d/
+
+json_output: true
+json_include_output_property: true
+json_include_tags_property: true
+
+log_stderr: true
+log_syslog: false
+log_level: info
+
+http_output:
+  enabled: true
+  url: "http://ai-gateway:8000/falco-alert"
+  user_agent: "falcosecurity/falco"
+  keep_alive: false
+  insecure: false
+  ca_cert: ""
+  ca_bundle: ""
+  ca_path: "/etc/ssl/certs"
+  mtls: false
+  client_cert: ""
+  client_key: ""
+
+stdout_output:
+  enabled: true

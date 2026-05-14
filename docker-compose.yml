@@ -1,0 +1,220 @@
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  escape-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+  sock-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.2.0/24
+  lateral-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.3.0/24
+  secrets-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.4.0/24
+  authz-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.5.0/24
+  monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.6.0/24
+
+services:
+
+  # ── AI Gateway ────────────────────────────────────────────────────────────
+  ai-gateway:
+    build: ./ai-gateway
+    container_name: ai-gateway
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LITELLM_LOG=${LITELLM_LOG:-INFO}
+    ports:
+      - "8000:8000"
+    networks:
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Falco ─────────────────────────────────────────────────────────────────
+  falco:
+    image: falcosecurity/falco:latest
+    container_name: falco
+    privileged: true
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /boot:/host/boot:ro
+      - /lib/modules:/host/lib/modules:ro
+      - /usr:/host/usr:ro
+      - /etc:/host/etc:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - ./falco/falco.yaml:/etc/falco/falco.yaml:ro
+      - ./falco/rules:/etc/falco/rules.d:ro
+    networks:
+      - escape-net
+      - sock-net
+      - lateral-net
+      - secrets-net
+      - authz-net
+      - monitoring
+    depends_on:
+      ai-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Scenario 1: Container Escape (CVE-2024-21626) ─────────────────────────
+  victim-escape:
+    build: ./victims/escape
+    container_name: victim-escape
+    networks:
+      - escape-net
+    labels:
+      scenario: "container-escape"
+      role: "victim"
+
+  attacker-escape:
+    build: ./attackers/escape
+    container_name: attacker-escape
+    networks:
+      - escape-net
+    labels:
+      scenario: "container-escape"
+      role: "attacker"
+    ports:
+      - "5001:5000"
+    depends_on:
+      - victim-escape
+
+  # ── Scenario 2: Docker Socket Abuse ───────────────────────────────────────
+  victim-sock:
+    build: ./victims/sock
+    container_name: victim-sock
+    networks:
+      - sock-net
+    labels:
+      scenario: "docker-socket-abuse"
+      role: "victim"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # intentional misconfiguration
+
+  attacker-sock:
+    build: ./attackers/sock
+    container_name: attacker-sock
+    networks:
+      - sock-net
+    labels:
+      scenario: "docker-socket-abuse"
+      role: "attacker"
+    ports:
+      - "5002:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - victim-sock
+
+  # ── Scenario 3: Lateral Movement ──────────────────────────────────────────
+  victim-lat-a:
+    build: ./victims/lateral-a
+    container_name: victim-lat-a
+    networks:
+      - lateral-net
+    labels:
+      scenario: "lateral-movement"
+      role: "victim-a"
+
+  victim-lat-b:
+    build: ./victims/lateral-b
+    container_name: victim-lat-b
+    networks:
+      - lateral-net
+    labels:
+      scenario: "lateral-movement"
+      role: "victim-b"
+
+  attacker-lateral:
+    build: ./attackers/lateral
+    container_name: attacker-lateral
+    networks:
+      - lateral-net
+    labels:
+      scenario: "lateral-movement"
+      role: "attacker"
+    ports:
+      - "5003:5000"
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE                                  # intentional: enables nsenter
+    depends_on:
+      - victim-lat-a
+      - victim-lat-b
+
+  # ── Scenario 4: Sensitive File Access ─────────────────────────────────────
+  victim-secrets:
+    build: ./victims/secrets
+    container_name: victim-secrets
+    networks:
+      - secrets-net
+    labels:
+      scenario: "sensitive-file-access"
+      role: "victim"
+    environment:
+      - DATABASE_PASSWORD=super_secret_db_pass_2024
+      - API_KEY=sk-prod-very-secret-key-do-not-share
+      - JWT_SECRET=jwt_signing_secret_weak
+
+  attacker-secrets:
+    build: ./attackers/secrets
+    container_name: attacker-secrets
+    networks:
+      - secrets-net
+    labels:
+      scenario: "sensitive-file-access"
+      role: "attacker"
+    ports:
+      - "5004:5000"
+    pid: host                                       # intentional: allows /proc/*/environ access
+    depends_on:
+      - victim-secrets
+
+  # ── Scenario 5: AuthZ Bypass (CVE-2026-34040) ─────────────────────────────
+  victim-authz:
+    build: ./victims/authz
+    container_name: victim-authz
+    networks:
+      - authz-net
+    labels:
+      scenario: "authz-bypass"
+      role: "victim"
+
+  attacker-authz:
+    build: ./attackers/authz
+    container_name: attacker-authz
+    networks:
+      - authz-net
+    labels:
+      scenario: "authz-bypass"
+      role: "attacker"
+    ports:
+      - "5005:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # needs socket to craft oversized request
+    depends_on:
+      - victim-authz

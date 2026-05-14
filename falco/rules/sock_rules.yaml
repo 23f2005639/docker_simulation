@@ -1,0 +1,24 @@
+- rule: Docker Socket Access from Container
+  desc: A container is connecting to or writing to /var/run/docker.sock — full Docker Engine API access
+  condition: >
+    container and
+    fd.name = "/var/run/docker.sock" and
+    evt.type in (connect, write, sendto, sendmsg)
+  output: >
+    Docker socket access from container — possible host takeover
+    (user=%user.name container=%container.name image=%container.image.repository
+     proc=%proc.cmdline scenario=docker-socket-abuse evt=%evt.type)
+  priority: CRITICAL
+  tags: [container, docker_sock, mitre_t1610]
+
+- rule: New Privileged Container Created via Socket
+  desc: Docker API used from inside container to spawn another privileged container
+  condition: >
+    container and
+    proc.name in (docker, dockerd) and
+    proc.cmdline contains "--privileged"
+  output: >
+    Privileged sibling container spawned via Docker API
+    (user=%user.name container=%container.name cmd=%proc.cmdline scenario=docker-socket-abuse)
+  priority: CRITICAL
+  tags: [container, docker_sock, mitre_t1610]

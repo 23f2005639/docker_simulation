@@ -1,0 +1,12 @@
+- rule: Container Escape via runc fd Leak (CVE-2024-21626)
+  desc: Detects container escape attempt — process cwd traverses into /proc/self/fd host path
+  condition: >
+    spawned_process and container and
+    (proc.cwd startswith "/proc/self/fd" or
+     proc.cwd startswith "/proc/1/fd")
+  output: >
+    CVE-2024-21626 escape attempt: process cwd points to host fd path
+    (user=%user.name container=%container.name image=%container.image.repository
+     command=%proc.cmdline cwd=%proc.cwd scenario=container-escape)
+  priority: CRITICAL
+  tags: [container, escape, mitre_t1611, CVE-2024-21626]
