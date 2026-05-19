@@ -1,0 +1,14 @@
+# Host-side dependencies (for trigger.py and local development)
+# The Docker images use their own requirements.txt in each subdirectory.
+requests>=2.31.0
+
+# ai-gateway (ai-gateway/requirements.txt)
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+litellm==1.83.3
+httpx==0.28.1
+sse-starlette==2.1.3
+
+# attacker containers (attackers/sock/requirements.txt)
+requests-unixsocket2==0.4.0
+flask==3.0.3
