@@ -12,11 +12,16 @@
     .risk-fill { transition: width 0.5s ease; }
     details > summary { list-style: none; cursor: pointer; user-select: none; }
     details > summary::-webkit-details-marker { display: none; }
+    .tab-btn { border-bottom: 2px solid transparent; transition: color 0.15s; }
     .tab-btn.active { border-bottom: 2px solid #4f46e5; color: #4338ca; font-weight: 600; }
-    .tab-btn { border-bottom: 2px solid transparent; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
+    .filter-chip { transition: background 0.15s, color 0.15s; }
+    .filter-chip.active { background: #e0e7ff; color: #3730a3; font-weight: 600; }
+    .mitre-chip:hover { opacity: 0.8; cursor: pointer; }
+    .reviewed { background: #f0fdf4 !important; }
     pre { white-space: pre-wrap; word-break: break-all; }
+    .stat-num { font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-sm font-sans text-gray-800">
@@ -24,31 +29,49 @@
   <!-- ── Header ─────────────────────────────────────────────────── -->
   <header class="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
     <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-
       <div class="flex items-center gap-3">
         <i class="bi bi-shield-lock-fill text-indigo-600 text-2xl"></i>
         <div>
           <h1 class="text-base font-bold text-gray-900 leading-tight">Docker Security Simulation Lab</h1>
-          <p class="text-xs text-gray-400">Falco · Real-time threat detection · AI analysis via gpt-4o</p>
+          <p class="text-xs text-gray-400">Falco · gpt-4o AI Analysis · Session started <span id="session-time" class="font-mono">—</span></p>
         </div>
       </div>
-
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
         <div class="flex items-center gap-1.5 text-xs">
           <i class="bi bi-broadcast text-gray-400" id="conn-icon"></i>
           <span id="conn-text" class="text-gray-400">Connecting…</span>
         </div>
-        <button
-          id="clear-btn"
-          onclick="clearAll()"
-          class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-600 text-gray-500 transition-colors"
-        >
+        <button onclick="downloadExport()" class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 text-gray-500 transition-colors">
+          <i class="bi bi-download"></i> Export JSON
+        </button>
+        <button onclick="clearAll()" class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-600 text-gray-500 transition-colors">
           <i class="bi bi-trash3"></i> Clear All
         </button>
       </div>
-
     </div>
   </header>
+
+  <!-- ── Stats bar ──────────────────────────────────────────────── -->
+  <div class="bg-white border-b border-gray-200">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 grid grid-cols-4 divide-x divide-gray-100">
+      <div class="text-center px-4">
+        <div class="text-2xl font-bold text-gray-900 stat-num font-mono" id="stat-alerts">0</div>
+        <div class="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">Total Detections</div>
+      </div>
+      <div class="text-center px-4">
+        <div class="text-2xl font-bold text-indigo-600 stat-num font-mono" id="stat-techniques">0</div>
+        <div class="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">MITRE Techniques</div>
+      </div>
+      <div class="text-center px-4">
+        <div class="text-2xl font-bold text-orange-500 stat-num font-mono" id="stat-avgrisk">—</div>
+        <div class="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">Avg Risk Score</div>
+      </div>
+      <div class="text-center px-4">
+        <div class="text-2xl font-bold text-gray-700 stat-num font-mono" id="stat-runs">0</div>
+        <div class="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">Attack Runs</div>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Main layout ────────────────────────────────────────────── -->
   <div class="max-w-screen-2xl mx-auto px-6 py-5 flex gap-5 items-start">
@@ -76,6 +99,17 @@
         </div>
       </div>
 
+      <!-- ATT&CK Coverage -->
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+          <i class="bi bi-diagram-3 text-gray-400 text-xs"></i>
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">ATT&amp;CK Coverage</span>
+        </div>
+        <div class="p-3" id="mitre-panel">
+          <p class="text-xs text-gray-400">No techniques detected yet.</p>
+        </div>
+      </div>
+
     </aside>
 
     <!-- ── Main panel ─────────────────────────────────────────────── -->
@@ -83,17 +117,20 @@
 
       <!-- Tab bar -->
       <div class="flex items-center border-b border-gray-200 px-4 gap-1">
-        <button class="tab-btn active flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600 transition-colors" data-tab="analysis" onclick="switchTab('analysis')">
+        <button class="tab-btn active flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="analysis" onclick="switchTab('analysis')">
           <i class="bi bi-graph-up"></i> AI Analysis
           <span id="alert-badge" class="ml-1 bg-indigo-100 text-indigo-700 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
         </button>
-        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600 transition-colors" data-tab="falco" onclick="switchTab('falco')">
+        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="falco" onclick="switchTab('falco')">
           <i class="bi bi-file-earmark-text"></i> Falco Logs
           <span id="falco-badge" class="ml-1 bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
         </button>
-        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600 transition-colors" data-tab="attacks" onclick="switchTab('attacks')">
+        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="attacks" onclick="switchTab('attacks')">
           <i class="bi bi-clock-history"></i> Attack History
           <span id="attacks-badge" class="ml-1 bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        </button>
+        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="research" onclick="switchTab('research')">
+          <i class="bi bi-clipboard2-data"></i> Research Summary
         </button>
         <div class="ml-auto flex items-center gap-1.5 text-xs text-gray-400 py-3">
           <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" id="live-dot"></span>
@@ -102,8 +139,17 @@
       </div>
 
       <!-- Tab: AI Analysis -->
-      <div id="tab-analysis" class="tab-panel active" style="max-height: calc(100vh - 148px); overflow-y: auto;">
-        <div id="analysis-feed">
+      <div id="tab-analysis" class="tab-panel active" style="max-height: calc(100vh - 200px); overflow-y: auto; display: flex; flex-direction: column;">
+        <!-- Severity filter chips -->
+        <div class="px-5 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap bg-slate-50 sticky top-0 z-10">
+          <span class="text-xs text-gray-400 mr-1">Filter:</span>
+          <button class="filter-chip active text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-white text-gray-600" data-sev="all" onclick="applyFilter('all')">All</button>
+          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-red-200 bg-red-50 text-red-700" data-sev="CRITICAL" onclick="applyFilter('CRITICAL')">CRITICAL <span id="fc-critical" class="font-mono">0</span></button>
+          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-orange-200 bg-orange-50 text-orange-700" data-sev="HIGH" onclick="applyFilter('HIGH')">HIGH <span id="fc-high" class="font-mono">0</span></button>
+          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-yellow-200 bg-yellow-50 text-yellow-700" data-sev="MEDIUM" onclick="applyFilter('MEDIUM')">MEDIUM <span id="fc-medium" class="font-mono">0</span></button>
+          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-green-200 bg-green-50 text-green-700" data-sev="LOW" onclick="applyFilter('LOW')">LOW <span id="fc-low" class="font-mono">0</span></button>
+        </div>
+        <div id="analysis-feed" class="flex-1">
           <div id="analysis-empty" class="py-16 text-center">
             <i class="bi bi-radar text-4xl text-gray-200"></i>
             <p class="text-sm text-gray-400 mt-3">No alerts yet.</p>
@@ -113,7 +159,7 @@
       </div>
 
       <!-- Tab: Falco Logs -->
-      <div id="tab-falco" class="tab-panel" style="max-height: calc(100vh - 148px); overflow-y: auto;">
+      <div id="tab-falco" class="tab-panel" style="max-height: calc(100vh - 200px); overflow-y: auto;">
         <div id="falco-feed">
           <div id="falco-empty" class="py-16 text-center">
             <i class="bi bi-journal-text text-4xl text-gray-200"></i>
@@ -124,7 +170,7 @@
       </div>
 
       <!-- Tab: Attack History -->
-      <div id="tab-attacks" class="tab-panel" style="max-height: calc(100vh - 148px); overflow-y: auto;">
+      <div id="tab-attacks" class="tab-panel" style="max-height: calc(100vh - 200px); overflow-y: auto;">
         <div id="attacks-feed">
           <div id="attacks-empty" class="py-16 text-center">
             <i class="bi bi-clock-history text-4xl text-gray-200"></i>
@@ -134,12 +180,24 @@
         </div>
       </div>
 
-    </main>
+      <!-- Tab: Research Summary -->
+      <div id="tab-research" class="tab-panel bg-slate-50/60" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+        <div id="research-content" class="p-6 space-y-6">
+          <div class="py-16 text-center">
+            <i class="bi bi-clipboard2-data text-4xl text-gray-200"></i>
+            <p class="text-sm text-gray-400 mt-3">Switch to this tab after running attacks to see your research summary.</p>
+          </div>
+        </div>
+      </div>
 
+    </main>
   </div>
 
   <script>
-    // ── Severity styles ─────────────────────────────────────────────────────
+    // ── Constants ────────────────────────────────────────────────────────────
+    const sessionStart = new Date();
+    document.getElementById("session-time").textContent = sessionStart.toLocaleTimeString();
+
     const SEV = {
       CRITICAL: { badge: "bg-red-100 text-red-700 border border-red-200",         bar: "bg-red-400",    lbl: "text-red-700"    },
       HIGH:     { badge: "bg-orange-100 text-orange-700 border border-orange-200", bar: "bg-orange-400", lbl: "text-orange-700" },
@@ -147,24 +205,122 @@
       LOW:      { badge: "bg-green-100 text-green-700 border border-green-200",    bar: "bg-green-400",  lbl: "text-green-700"  },
     };
 
-    // ── Scenario metadata (no emojis) ────────────────────────────────────────
     const SCENARIOS = [
-      { id: "escape",  name: "Container Escape",     cve: "CVE-2024-21626", desc: "runc /proc/self/fd directory traversal", tag: "T1611", icon: "bi-door-open",        tagCls: "bg-red-50 text-red-600 border border-red-100"    },
+      { id: "escape",  name: "Container Escape",     cve: "CVE-2024-21626", desc: "runc /proc/self/fd directory traversal", tag: "T1611", icon: "bi-door-open",        tagCls: "bg-red-50 text-red-600 border border-red-100"        },
       { id: "sock",    name: "Docker Socket Abuse",  cve: null,              desc: "Spawn privileged containers via socket", tag: "T1610", icon: "bi-plug",             tagCls: "bg-orange-50 text-orange-600 border border-orange-100" },
       { id: "lateral", name: "Lateral Movement",     cve: null,              desc: "nsenter + east-west network scanning",  tag: "T1046", icon: "bi-arrow-left-right", tagCls: "bg-yellow-50 text-yellow-700 border border-yellow-100" },
       { id: "secrets", name: "Secrets Exfiltration", cve: null,              desc: "Read /etc/shadow and process env vars", tag: "T1552", icon: "bi-key",              tagCls: "bg-purple-50 text-purple-600 border border-purple-100" },
       { id: "authz",   name: "AuthZ Bypass",         cve: "CVE-2026-34040", desc: "Oversized body bypasses plugin check",  tag: "T1610", icon: "bi-unlock",           tagCls: "bg-orange-50 text-orange-600 border border-orange-100" },
     ];
 
-    // ── Tab switching ────────────────────────────────────────────────────────
+    // ── State ────────────────────────────────────────────────────────────────
+    let alertCount = 0;
+    let lastFalcoCount = 0;
+    let lastAttackCount = 0;
+    let activeFilter = "all";
+    let activeMitreFilter = null;
+    const localAlerts = [];
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function setBadge(id, count) {
+      const el = document.getElementById(id);
+      el.textContent = count;
+      el.classList.toggle("hidden", count === 0);
+    }
+
+    function setText(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(val ?? "—");
+    }
+
+    // ── Stats bar ────────────────────────────────────────────────────────────
+    function updateStats() {
+      setText("stat-alerts", localAlerts.length);
+      const techs = new Set(
+        localAlerts.map(a => (a.analysis?.mitre_technique || "").split(" ")[0]).filter(Boolean)
+      );
+      setText("stat-techniques", techs.size || 0);
+      const risks = localAlerts.map(a => parseFloat(a.analysis?.risk_score)).filter(n => !isNaN(n));
+      setText("stat-avgrisk", risks.length ? (risks.reduce((s, r) => s + r, 0) / risks.length).toFixed(1) : "—");
+      setText("stat-runs", lastAttackCount);
+
+      // Severity filter counts
+      ["CRITICAL", "HIGH", "MEDIUM", "LOW"].forEach(sev => {
+        const count = localAlerts.filter(a => a.severity === sev).length;
+        setText(`fc-${sev.toLowerCase()}`, count);
+      });
+
+      updateMitreCoverage();
+    }
+
+    // ── ATT&CK Coverage panel ────────────────────────────────────────────────
+    const SEV_MITRE_CHIP = {
+      CRITICAL: "bg-red-50 border border-red-200 text-red-700",
+      HIGH:     "bg-orange-50 border border-orange-200 text-orange-700",
+      MEDIUM:   "bg-yellow-50 border border-yellow-200 text-yellow-700",
+      LOW:      "bg-green-50 border border-green-200 text-green-700",
+    };
+
+    function getMitreCoverage() {
+      const map = {};
+      localAlerts.forEach(a => {
+        const raw = a.analysis?.mitre_technique;
+        if (!raw) return;
+        const id = raw.split(" ")[0];
+        if (!map[id]) map[id] = { id, full: raw, count: 0, severity: a.severity, risks: [] };
+        map[id].count++;
+        map[id].severity = a.severity;
+        const r = parseFloat(a.analysis?.risk_score);
+        if (!isNaN(r)) map[id].risks.push(r);
+      });
+      return Object.values(map).sort((a, b) => b.count - a.count);
+    }
+
+    function updateMitreCoverage() {
+      const panel = document.getElementById("mitre-panel");
+      const coverage = getMitreCoverage();
+      panel.textContent = "";
+      if (!coverage.length) {
+        const p = document.createElement("p");
+        p.className = "text-xs text-gray-400";
+        p.textContent = "No techniques detected yet.";
+        panel.appendChild(p);
+        return;
+      }
+      coverage.forEach(t => {
+        const chip = document.createElement("div");
+        chip.className = `mitre-chip flex items-center justify-between px-2 py-1.5 rounded-md mb-1 ${SEV_MITRE_CHIP[t.severity] || SEV_MITRE_CHIP.LOW}`;
+        chip.title = "Click to filter by this technique";
+        chip.addEventListener("click", () => filterByMitre(t.id));
+
+        const left = document.createElement("div");
+        const idEl = document.createElement("span");
+        idEl.className = "text-xs font-mono font-bold";
+        idEl.textContent = t.id;
+        const nameEl = document.createElement("p");
+        nameEl.className = "text-xs opacity-75 leading-tight";
+        nameEl.textContent = t.full.replace(t.id + " - ", "").replace(t.id + " ", "");
+        left.append(idEl, nameEl);
+
+        const right = document.createElement("span");
+        right.className = "text-xs font-mono font-bold ml-2 flex-shrink-0";
+        right.textContent = `×${t.count}`;
+
+        chip.append(left, right);
+        panel.appendChild(chip);
+      });
+    }
+
+    // ── Tab switching ─────────────────────────────────────────────────────────
     let activeTab = "analysis";
     function switchTab(name) {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
       document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${name}`));
       activeTab = name;
+      if (name === "research") renderResearchSummary();
     }
 
-    // ── Render sidebar attack cards ──────────────────────────────────────────
+    // ── Render attack sidebar ─────────────────────────────────────────────────
     function renderAttacks() {
       const list = document.getElementById("attack-list");
       SCENARIOS.forEach(s => {
@@ -172,15 +328,12 @@
         wrap.className = "px-3 py-3";
 
         const header = document.createElement("div");
-        header.className = "flex items-center gap-2 mb-1.5";
-
+        header.className = "flex items-center gap-2 mb-1";
         const icon = document.createElement("i");
         icon.className = `bi ${s.icon} text-gray-400`;
-
         const name = document.createElement("span");
         name.className = "text-xs font-semibold text-gray-700";
         name.textContent = s.name;
-
         header.append(icon, name);
 
         const desc = document.createElement("p");
@@ -189,32 +342,28 @@
 
         const footer = document.createElement("div");
         footer.className = "flex items-center gap-1.5 pl-5";
-
         const tag = document.createElement("span");
         tag.className = `text-xs px-1.5 py-0.5 rounded font-mono ${s.tagCls}`;
         tag.textContent = s.tag;
-
         if (s.cve) {
           const cve = document.createElement("span");
-          cve.className = "text-xs text-gray-400";
+          cve.className = "text-xs text-gray-400 font-mono";
           cve.textContent = s.cve;
           footer.append(tag, cve);
         } else {
           footer.append(tag);
         }
-
         const btn = document.createElement("button");
         btn.className = "ml-auto text-xs px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1";
         btn.innerHTML = '<i class="bi bi-play-fill"></i> Run';
         btn.addEventListener("click", () => triggerAttack(s.id, btn));
-
         footer.appendChild(btn);
         wrap.append(header, desc, footer);
         list.appendChild(wrap);
       });
     }
 
-    // ── Trigger attack ───────────────────────────────────────────────────────
+    // ── Trigger attack ────────────────────────────────────────────────────────
     async function triggerAttack(scenario, btn) {
       btn.disabled = true;
       btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Running…';
@@ -234,7 +383,7 @@
       setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i> Run'; }, 3500);
     }
 
-    // ── Health status ────────────────────────────────────────────────────────
+    // ── Health check ──────────────────────────────────────────────────────────
     async function checkHealth() {
       const list = document.getElementById("health-list");
       try {
@@ -245,21 +394,16 @@
           const ok = ["ok", "ready", "attacking"].includes(info.status);
           const row = document.createElement("div");
           row.className = "flex items-center justify-between py-0.5";
-
           const lbl = document.createElement("span");
           lbl.className = "text-xs text-gray-600 capitalize";
           lbl.textContent = name;
-
           const right = document.createElement("div");
           right.className = "flex items-center gap-1";
-
           const dot = document.createElement("i");
           dot.className = `bi bi-circle-fill text-xs ${ok ? "text-green-400" : "text-red-400"}`;
-
           const status = document.createElement("span");
-          status.className = `text-xs ${ok ? "text-green-600" : "text-red-500"}`;
-          status.textContent = ok ? "Ready" : String(info.status);
-
+          status.className = `text-xs font-mono ${ok ? "text-green-600" : "text-red-500"}`;
+          status.textContent = ok ? "ready" : String(info.status);
           right.append(dot, status);
           row.append(lbl, right);
           list.appendChild(row);
@@ -273,24 +417,28 @@
       }
     }
 
-    // ── Badge helpers ────────────────────────────────────────────────────────
-    let alertCount = 0;
-    let lastFalcoCount = 0;
-    let lastAttackCount = 0;
-
-    function setBadge(id, count) {
-      const el = document.getElementById(id);
-      el.textContent = count;
-      el.classList.toggle("hidden", count === 0);
+    // ── Severity filter ───────────────────────────────────────────────────────
+    function applyFilter(sev) {
+      activeFilter = sev;
+      activeMitreFilter = null;
+      document.querySelectorAll(".filter-chip").forEach(b => b.classList.toggle("active", b.dataset.sev === sev));
+      document.querySelectorAll(".alert-card").forEach(card => {
+        card.classList.toggle("hidden", sev !== "all" && card.dataset.severity !== sev);
+      });
     }
 
-    function updateAlertBadge() {
-      alertCount++;
-      setBadge("alert-badge", alertCount);
+    function filterByMitre(id) {
+      activeMitreFilter = id;
+      activeFilter = "all";
+      switchTab("analysis");
+      document.querySelectorAll(".filter-chip").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".alert-card").forEach(card => {
+        card.classList.toggle("hidden", !card.dataset.mitre.startsWith(id));
+      });
     }
 
-    // ── Helper: add a labeled row to a detail section ────────────────────────
-    function addField(parent, label, value) {
+    // ── Helper field builder ──────────────────────────────────────────────────
+    function addField(parent, label, value, mono) {
       if (value === undefined || value === null || value === "") return;
       const row = document.createElement("div");
       row.className = "flex items-start gap-2";
@@ -298,28 +446,34 @@
       lbl.className = "text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-0.5";
       lbl.textContent = label;
       const val = document.createElement("p");
-      val.className = "text-xs text-gray-700 leading-relaxed";
+      val.className = `text-xs text-gray-700 leading-relaxed${mono ? " font-mono" : ""}`;
       val.textContent = String(value);
       row.append(lbl, val);
       parent.appendChild(row);
     }
 
-    // ── Render an AI analysis alert card ────────────────────────────────────
+    // ── Render AI alert card ──────────────────────────────────────────────────
     function renderAlert(alert) {
+      localAlerts.push(alert);
       const feed = document.getElementById("analysis-feed");
-      const empty = document.getElementById("analysis-empty");
-      if (empty) empty.remove();
+      document.getElementById("analysis-empty")?.remove();
 
-      updateAlertBadge();
+      alertCount++;
+      setBadge("alert-badge", alertCount);
+      updateStats();
 
       const sev = alert.severity || "CRITICAL";
       const style = SEV[sev] || SEV.CRITICAL;
       const a = alert.analysis || {};
+      const mitreRaw = a.mitre_technique || "";
+      const mitreId = mitreRaw.split(" ")[0];
       const risk = parseInt(a.risk_score ?? 0, 10);
       const ts = alert.timestamp ? new Date(alert.timestamp).toLocaleTimeString() : "";
 
       const card = document.createElement("div");
-      card.className = "alert-card px-5 py-4 border-b border-gray-100 hover:bg-slate-50 transition-colors";
+      card.className = "alert-card px-5 py-4 border-b border-gray-100 hover:bg-slate-50/80 transition-colors";
+      card.dataset.severity = sev;
+      card.dataset.mitre = mitreRaw;
 
       // Header row
       const header = document.createElement("div");
@@ -336,17 +490,56 @@
       ruleName.className = "text-sm font-semibold text-gray-800";
       ruleName.textContent = alert.rule || "Unknown Rule";
 
+      left.append(badge, ruleName);
+
+      // MITRE chip
+      if (mitreId) {
+        const mChip = document.createElement("span");
+        mChip.className = "text-xs font-mono px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 cursor-pointer hover:bg-indigo-100";
+        mChip.textContent = mitreId;
+        mChip.title = mitreRaw;
+        mChip.addEventListener("click", () => filterByMitre(mitreId));
+        left.appendChild(mChip);
+      }
+
       const scenarioPill = document.createElement("span");
       scenarioPill.className = "text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full";
       scenarioPill.textContent = alert.scenario || "";
+      left.appendChild(scenarioPill);
 
-      left.append(badge, ruleName, scenarioPill);
+      // Right: timestamp + action buttons
+      const right = document.createElement("div");
+      right.className = "flex items-center gap-2 flex-shrink-0";
 
       const tsEl = document.createElement("span");
-      tsEl.className = "text-xs text-gray-400 flex-shrink-0 font-mono";
+      tsEl.className = "text-xs text-gray-400 font-mono";
       tsEl.textContent = ts;
 
-      header.append(left, tsEl);
+      // Copy single alert JSON
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "text-gray-300 hover:text-indigo-500 transition-colors";
+      copyBtn.title = "Copy alert JSON";
+      copyBtn.innerHTML = '<i class="bi bi-clipboard text-xs"></i>';
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(JSON.stringify(alert, null, 2));
+        copyBtn.innerHTML = '<i class="bi bi-clipboard-check text-xs text-green-500"></i>';
+        setTimeout(() => { copyBtn.innerHTML = '<i class="bi bi-clipboard text-xs"></i>'; }, 1500);
+      });
+
+      // Reviewed toggle
+      const reviewBtn = document.createElement("button");
+      reviewBtn.className = "text-gray-300 hover:text-green-500 transition-colors";
+      reviewBtn.title = "Mark as reviewed";
+      reviewBtn.innerHTML = '<i class="bi bi-check2-circle text-xs"></i>';
+      reviewBtn.addEventListener("click", () => {
+        const reviewed = card.classList.toggle("reviewed");
+        reviewBtn.innerHTML = reviewed
+          ? '<i class="bi bi-check2-circle text-xs text-green-500"></i>'
+          : '<i class="bi bi-check2-circle text-xs"></i>';
+      });
+
+      right.append(tsEl, copyBtn, reviewBtn);
+      header.append(left, right);
 
       // Triage
       const triage = document.createElement("p");
@@ -356,22 +549,19 @@
       // Expandable analysis
       const details = document.createElement("details");
       details.className = "group";
-
       const summary = document.createElement("summary");
       summary.className = "flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 font-medium";
       const chevron = document.createElement("i");
       chevron.className = "bi bi-chevron-right text-xs transition-transform group-open:rotate-90";
-      const summaryText = document.createTextNode(" View AI Analysis");
-      summary.append(chevron, summaryText);
+      summary.append(chevron, document.createTextNode(" View AI Analysis"));
 
       const body = document.createElement("div");
       body.className = "mt-3 space-y-2.5 pl-1";
 
-      addField(body, "MITRE Technique", a.mitre_technique);
+      addField(body, "MITRE Technique", mitreRaw, true);
       addField(body, "What happened", a.what_happened);
       addField(body, "Misconfiguration", a.misconfiguration);
 
-      // Risk bar
       if (a.risk_score !== undefined) {
         const row = document.createElement("div");
         row.className = "flex items-start gap-2";
@@ -387,7 +577,7 @@
         fill.style.width = `${risk * 10}%`;
         track.appendChild(fill);
         const score = document.createElement("span");
-        score.className = `text-xs font-bold ${style.lbl}`;
+        score.className = `text-xs font-bold font-mono ${style.lbl}`;
         score.textContent = `${risk} / 10`;
         wrap.append(track, score);
         row.append(lbl, wrap);
@@ -418,22 +608,23 @@
 
       details.append(summary, body);
       card.append(header, triage, details);
-      feed.insertBefore(card, feed.firstChild);
 
+      // Apply current filter
+      if (activeFilter !== "all" && sev !== activeFilter) card.classList.add("hidden");
+      if (activeMitreFilter && !mitreRaw.startsWith(activeMitreFilter)) card.classList.add("hidden");
+
+      feed.insertBefore(card, feed.firstChild);
       const cards = feed.querySelectorAll(".alert-card");
-      if (cards.length > 40) cards[cards.length - 1].remove();
+      if (cards.length > 50) cards[cards.length - 1].remove();
     }
 
-    // ── Render Falco log row ─────────────────────────────────────────────────
+    // ── Render Falco log row ──────────────────────────────────────────────────
     function renderFalcoLog(entry) {
       const feed = document.getElementById("falco-feed");
-      const empty = document.getElementById("falco-empty");
-      if (empty) empty.remove();
+      document.getElementById("falco-empty")?.remove();
 
       const alert = entry.alert || {};
       const ts = entry.received_at ? new Date(entry.received_at).toLocaleTimeString() : "";
-      const rule = alert.rule || "Unknown";
-      const priority = alert.priority || "";
 
       const row = document.createElement("div");
       row.className = "border-b border-gray-100 px-5 py-3 hover:bg-slate-50 transition-colors";
@@ -446,11 +637,11 @@
 
       const priEl = document.createElement("span");
       priEl.className = "text-xs font-mono text-gray-400";
-      priEl.textContent = priority;
+      priEl.textContent = alert.priority || "";
 
       const ruleEl = document.createElement("span");
       ruleEl.className = "text-xs font-semibold text-gray-700";
-      ruleEl.textContent = rule;
+      ruleEl.textContent = alert.rule || "Unknown";
 
       left.append(priEl, ruleEl);
 
@@ -460,30 +651,29 @@
 
       header.append(left, tsEl);
 
-      const details = document.createElement("details");
-      details.className = "group mt-1";
-      const summary = document.createElement("summary");
-      summary.className = "flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500";
-      const chevron = document.createElement("i");
-      chevron.className = "bi bi-chevron-right text-xs transition-transform group-open:rotate-90";
-      summary.append(chevron, document.createTextNode(" Raw JSON"));
+      const det = document.createElement("details");
+      det.className = "group mt-1";
+      const sum = document.createElement("summary");
+      sum.className = "flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500";
+      const ch = document.createElement("i");
+      ch.className = "bi bi-chevron-right text-xs transition-transform group-open:rotate-90";
+      sum.append(ch, document.createTextNode(" Raw JSON"));
       const pre = document.createElement("pre");
       pre.className = "mt-2 text-xs bg-gray-50 border border-gray-200 rounded p-2 font-mono text-gray-600 leading-relaxed max-h-40 overflow-y-auto";
       pre.textContent = JSON.stringify(alert, null, 2);
-      details.append(summary, pre);
+      det.append(sum, pre);
 
-      row.append(header, details);
+      row.append(header, det);
       feed.insertBefore(row, feed.firstChild);
 
       const rows = feed.querySelectorAll("div.border-b");
       if (rows.length > 100) rows[rows.length - 1].remove();
     }
 
-    // ── Render attack history row ────────────────────────────────────────────
+    // ── Render attack history row ─────────────────────────────────────────────
     function renderAttackLog(entry) {
       const feed = document.getElementById("attacks-feed");
-      const empty = document.getElementById("attacks-empty");
-      if (empty) empty.remove();
+      document.getElementById("attacks-empty")?.remove();
 
       const ts = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : "";
       const scenario = entry.scenario || "unknown";
@@ -499,34 +689,235 @@
       const icon = document.createElement("i");
       icon.className = `bi ${ok ? "bi-check-circle text-green-500" : "bi-x-circle text-red-400"} text-sm`;
 
-      const scenarioEl = document.createElement("div");
+      const info = document.createElement("div");
       const nameEl = document.createElement("span");
       nameEl.className = "text-xs font-semibold text-gray-700 capitalize";
       nameEl.textContent = scenario;
       const statusEl = document.createElement("p");
-      statusEl.className = "text-xs text-gray-400";
+      statusEl.className = "text-xs text-gray-400 font-mono";
       statusEl.textContent = resp.status || "unknown";
-      scenarioEl.append(nameEl, statusEl);
+      info.append(nameEl, statusEl);
 
-      left.append(icon, scenarioEl);
+      left.append(icon, info);
 
-      const right = document.createElement("span");
-      right.className = "text-xs text-gray-400 font-mono";
-      right.textContent = ts;
+      const rightTs = document.createElement("span");
+      rightTs.className = "text-xs text-gray-400 font-mono";
+      rightTs.textContent = ts;
 
-      row.append(left, right);
+      row.append(left, rightTs);
       feed.insertBefore(row, feed.firstChild);
     }
 
-    // ── Load historical data ─────────────────────────────────────────────────
-    async function loadRecentAlerts() {
-      try {
-        const r = await fetch("/api/alerts");
-        const alerts = await r.json();
-        alerts.slice().reverse().forEach(renderAlert);
-      } catch {}
+    // ── Research Summary tab ──────────────────────────────────────────────────
+    function renderResearchSummary() {
+      const content = document.getElementById("research-content");
+      content.textContent = "";
+
+      if (!localAlerts.length) {
+        const empty = document.createElement("div");
+        empty.className = "py-16 text-center";
+        empty.innerHTML = '<i class="bi bi-clipboard2-data text-4xl text-gray-200"></i>';
+        const p = document.createElement("p");
+        p.className = "text-sm text-gray-400 mt-3";
+        p.textContent = "No alerts collected yet. Run some attacks first.";
+        empty.appendChild(p);
+        content.appendChild(empty);
+        return;
+      }
+
+      const coverage = getMitreCoverage();
+      const sevCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+      const scenarioCounts = {};
+      localAlerts.forEach(a => {
+        if (sevCounts[a.severity] !== undefined) sevCounts[a.severity]++;
+        const sc = a.scenario || "unknown";
+        if (!scenarioCounts[sc]) scenarioCounts[sc] = { alerts: 0, maxRisk: 0 };
+        scenarioCounts[sc].alerts++;
+        const r = parseInt(a.analysis?.risk_score ?? 0);
+        if (r > scenarioCounts[sc].maxRisk) scenarioCounts[sc].maxRisk = r;
+      });
+      const risks = localAlerts.map(a => parseFloat(a.analysis?.risk_score)).filter(n => !isNaN(n));
+      const avgRisk = risks.length ? (risks.reduce((s, r) => s + r, 0) / risks.length).toFixed(1) : "—";
+      const scenariosRun = new Set(localAlerts.map(a => a.scenario)).size;
+
+      // ── Session header ──
+      const section = (title) => {
+        const d = document.createElement("div");
+        const h = document.createElement("h3");
+        h.className = "text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3 pb-1 border-b border-gray-200";
+        h.textContent = title;
+        d.appendChild(h);
+        return d;
+      };
+
+      const row2 = (label, val, mono) => {
+        const d = document.createElement("div");
+        d.className = "flex justify-between items-center py-0.5";
+        const l = document.createElement("span");
+        l.className = "text-xs text-gray-500";
+        l.textContent = label;
+        const v = document.createElement("span");
+        v.className = `text-xs font-semibold text-gray-800${mono ? " font-mono" : ""}`;
+        v.textContent = String(val);
+        d.append(l, v);
+        return d;
+      };
+
+      // Session summary
+      const s1 = section("Session Summary");
+      s1.appendChild(row2("Lab", "Docker Security Simulation Lab"));
+      s1.appendChild(row2("Session started", sessionStart.toLocaleTimeString(), true));
+      s1.appendChild(row2("Total alerts collected", localAlerts.length, true));
+      s1.appendChild(row2("Scenarios observed", `${scenariosRun} of 5`, true));
+      s1.appendChild(row2("Avg risk score", avgRisk, true));
+      content.appendChild(s1);
+
+      // MITRE Techniques
+      const s2 = section("MITRE ATT&CK Techniques Observed");
+      if (coverage.length) {
+        const table = document.createElement("div");
+        table.className = "space-y-2";
+        const maxCount = coverage[0].count;
+        coverage.forEach(t => {
+          const avgR = t.risks.length ? (t.risks.reduce((s, r) => s + r, 0) / t.risks.length).toFixed(1) : "—";
+          const pct = Math.round((t.count / maxCount) * 100);
+          const sty = SEV[t.severity] || SEV.LOW;
+
+          const rowEl = document.createElement("div");
+          rowEl.className = "bg-white rounded-lg border border-gray-200 px-3 py-2";
+
+          const top = document.createElement("div");
+          top.className = "flex items-center justify-between mb-1.5";
+
+          const nameWrap = document.createElement("div");
+          const idSpan = document.createElement("span");
+          idSpan.className = "text-xs font-mono font-bold text-indigo-700";
+          idSpan.textContent = t.id;
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "text-xs text-gray-600 ml-1.5";
+          nameSpan.textContent = t.full.replace(t.id, "").replace(/^ ?[-–] ?/, "");
+          nameWrap.append(idSpan, nameSpan);
+
+          const meta = document.createElement("div");
+          meta.className = "flex items-center gap-3 text-xs flex-shrink-0";
+          const sev = document.createElement("span");
+          sev.className = `px-1.5 py-0.5 rounded text-xs font-bold ${sty.badge}`;
+          sev.textContent = t.severity;
+          const hits = document.createElement("span");
+          hits.className = "font-mono text-gray-500";
+          hits.textContent = `${t.count} hit${t.count !== 1 ? "s" : ""}`;
+          const avg = document.createElement("span");
+          avg.className = `font-mono font-bold ${sty.lbl}`;
+          avg.textContent = `Risk ${avgR}`;
+          meta.append(sev, hits, avg);
+
+          top.append(nameWrap, meta);
+
+          const track = document.createElement("div");
+          track.className = "h-1.5 bg-gray-100 rounded-full overflow-hidden";
+          const fill = document.createElement("div");
+          fill.className = `h-full ${sty.bar} rounded-full`;
+          fill.style.width = `${pct}%`;
+          track.appendChild(fill);
+
+          rowEl.append(top, track);
+          table.appendChild(rowEl);
+        });
+        s2.appendChild(table);
+      }
+      content.appendChild(s2);
+
+      // Severity distribution
+      const s3 = section("Severity Distribution");
+      const totalSev = Object.values(sevCounts).reduce((s, n) => s + n, 0);
+      Object.entries(sevCounts).forEach(([sev, count]) => {
+        const sty = SEV[sev];
+        const pct = totalSev ? Math.round((count / totalSev) * 100) : 0;
+        const rowEl = document.createElement("div");
+        rowEl.className = "flex items-center gap-3 mb-2";
+        const label = document.createElement("span");
+        label.className = `text-xs font-bold w-20 flex-shrink-0 ${sty.lbl}`;
+        label.textContent = sev;
+        const track = document.createElement("div");
+        track.className = "flex-1 h-2 bg-gray-100 rounded-full overflow-hidden";
+        const fill = document.createElement("div");
+        fill.className = `h-full ${sty.bar} rounded-full`;
+        fill.style.width = `${pct}%`;
+        track.appendChild(fill);
+        const num = document.createElement("span");
+        num.className = "text-xs font-mono font-bold text-gray-600 w-8 text-right";
+        num.textContent = count;
+        rowEl.append(label, track, num);
+        s3.appendChild(rowEl);
+      });
+      content.appendChild(s3);
+
+      // Export buttons
+      const s4 = section("Export");
+      const btnRow = document.createElement("div");
+      btnRow.className = "flex gap-3";
+
+      const mdBtn = document.createElement("button");
+      mdBtn.className = "flex items-center gap-2 text-xs px-4 py-2 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium transition-colors";
+      mdBtn.innerHTML = '<i class="bi bi-markdown"></i> Copy Markdown Summary';
+      mdBtn.addEventListener("click", () => {
+        copyMarkdown(coverage, sevCounts, avgRisk, scenariosRun);
+        mdBtn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied!';
+        setTimeout(() => { mdBtn.innerHTML = '<i class="bi bi-markdown"></i> Copy Markdown Summary'; }, 2000);
+      });
+
+      const jsonBtn = document.createElement("button");
+      jsonBtn.className = "flex items-center gap-2 text-xs px-4 py-2 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium transition-colors";
+      jsonBtn.innerHTML = '<i class="bi bi-download"></i> Export Full JSON';
+      jsonBtn.addEventListener("click", downloadExport);
+
+      btnRow.append(mdBtn, jsonBtn);
+      s4.appendChild(btnRow);
+      content.appendChild(s4);
     }
 
+    // ── Markdown export ───────────────────────────────────────────────────────
+    function copyMarkdown(coverage, sevCounts, avgRisk, scenariosRun) {
+      const lines = [
+        "# Docker Security Simulation Lab — Research Report",
+        "",
+        `**Session:** ${sessionStart.toLocaleString()}  `,
+        `**Total Alerts:** ${localAlerts.length}  `,
+        `**Scenarios Observed:** ${scenariosRun} of 5  `,
+        `**Average Risk Score:** ${avgRisk}`,
+        "",
+        "---",
+        "",
+        "## MITRE ATT&CK Techniques Observed",
+        "",
+        "| Technique ID | Description | Hits | Avg Risk | Max Severity |",
+        "|---|---|---|---|---|",
+      ];
+      coverage.forEach(t => {
+        const avgR = t.risks.length ? (t.risks.reduce((s, r) => s + r, 0) / t.risks.length).toFixed(1) : "—";
+        const name = t.full.replace(t.id, "").replace(/^ ?[-–] ?/, "");
+        lines.push(`| \`${t.id}\` | ${name} | ${t.count} | ${avgR} | ${t.severity} |`);
+      });
+      lines.push("", "---", "", "## Severity Distribution", "");
+      Object.entries(sevCounts).forEach(([sev, count]) => {
+        lines.push(`- **${sev}**: ${count}`);
+      });
+      lines.push("", "---", "", `*Generated by Docker Security Simulation Lab — ${new Date().toISOString()}*`);
+      navigator.clipboard.writeText(lines.join("\n"));
+    }
+
+    // ── JSON download ─────────────────────────────────────────────────────────
+    function downloadExport() {
+      const blob = new Blob([JSON.stringify(localAlerts, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `security-research-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Poll Falco/Attack logs ────────────────────────────────────────────────
     async function pollFalcoLogs() {
       try {
         const r = await fetch("/api/falco-logs");
@@ -552,20 +943,36 @@
         }
         lastAttackCount = logs.length;
         setBadge("attacks-badge", lastAttackCount);
+        setText("stat-runs", lastAttackCount);
       } catch {}
     }
 
-    // ── Clear all ────────────────────────────────────────────────────────────
+    // ── Load historical alerts on boot ────────────────────────────────────────
+    async function loadRecentAlerts() {
+      try {
+        const r = await fetch("/api/alerts");
+        const alerts = await r.json();
+        alerts.slice().reverse().forEach(renderAlert);
+      } catch {}
+    }
+
+    // ── Clear all ─────────────────────────────────────────────────────────────
     async function clearAll() {
       await fetch("/api/clear", { method: "POST" });
 
+      localAlerts.length = 0;
       alertCount = 0;
-      document.getElementById("alert-badge").textContent = "0";
-      document.getElementById("alert-badge").classList.add("hidden");
       lastFalcoCount = 0;
       lastAttackCount = 0;
+      activeFilter = "all";
+      activeMitreFilter = null;
+
+      setBadge("alert-badge", 0);
       setBadge("falco-badge", 0);
       setBadge("attacks-badge", 0);
+      updateStats();
+
+      document.querySelectorAll(".filter-chip").forEach(b => b.classList.toggle("active", b.dataset.sev === "all"));
 
       document.getElementById("analysis-feed").innerHTML =
         '<div id="analysis-empty" class="py-16 text-center">' +
@@ -582,54 +989,46 @@
         '<div id="attacks-empty" class="py-16 text-center">' +
         '<i class="bi bi-clock-history text-4xl text-gray-200"></i>' +
         '<p class="text-sm text-gray-400 mt-3">No attacks triggered yet.</p></div>';
+
+      document.getElementById("research-content").innerHTML =
+        '<div class="py-16 text-center">' +
+        '<i class="bi bi-clipboard2-data text-4xl text-gray-200"></i>' +
+        '<p class="text-sm text-gray-400 mt-3">No alerts collected yet. Run some attacks first.</p></div>';
     }
 
-    // ── SSE connection ───────────────────────────────────────────────────────
+    // ── SSE connection ────────────────────────────────────────────────────────
     function connectSSE() {
       const connIcon = document.getElementById("conn-icon");
       const connText = document.getElementById("conn-text");
       const liveDot  = document.getElementById("live-dot");
-
       const es = new EventSource("/stream");
-
       es.onopen = () => {
         connIcon.className = "bi bi-broadcast text-green-500";
         connText.textContent = "Connected";
-        connText.className = "text-green-600";
+        connText.className = "text-green-600 text-xs";
         liveDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse";
       };
-
       es.onmessage = (e) => {
-        try {
-          const alert = JSON.parse(e.data);
-          renderAlert(alert);
-          // Also mirror to Falco logs tab if it has the raw event
-        } catch {}
+        try { renderAlert(JSON.parse(e.data)); } catch {}
       };
-
       es.onerror = () => {
         connIcon.className = "bi bi-broadcast text-red-400";
         connText.textContent = "Reconnecting…";
-        connText.className = "text-red-500";
+        connText.className = "text-red-500 text-xs";
         liveDot.className = "w-1.5 h-1.5 rounded-full bg-gray-300";
         es.close();
         setTimeout(connectSSE, 5000);
       };
     }
 
-    // ── Poll Falco/Attack logs in parallel regardless of active tab ──────────
-    setInterval(() => {
-      pollFalcoLogs();
-      pollAttackLogs();
-    }, 4000);
-
-    // ── Boot ─────────────────────────────────────────────────────────────────
+    // ── Boot ──────────────────────────────────────────────────────────────────
     renderAttacks();
     loadRecentAlerts();
     pollFalcoLogs();
     pollAttackLogs();
     checkHealth();
     setInterval(checkHealth, 8000);
+    setInterval(() => { pollFalcoLogs(); pollAttackLogs(); }, 4000);
     connectSSE();
   </script>
 </body>
