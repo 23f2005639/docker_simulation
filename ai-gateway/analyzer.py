@@ -1,13 +1,16 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
+
 import litellm
+
 from prompts import triage_prompt, deep_prompt
+from state import broadcast
 
 logger = logging.getLogger(__name__)
 
-TRIAGE_MODEL = "openai/gpt-5.4-nano"
-ANALYSIS_MODEL = "openai/gpt-5.5"
+MODEL = "openai/gpt-4o"
 
 SEVERITY_COLORS = {
     "CRITICAL": "\033[91m",
@@ -28,14 +31,14 @@ async def analyze_alert(alert: dict) -> None:
     try:
         triage_resp, deep_resp = await asyncio.gather(
             litellm.acompletion(
-                model=TRIAGE_MODEL,
+                model=MODEL,
                 messages=triage_prompt(alert),
-                max_tokens=80,
+                max_tokens=60,
             ),
             litellm.acompletion(
-                model=ANALYSIS_MODEL,
+                model=MODEL,
                 messages=deep_prompt(alert),
-                max_tokens=1200,
+                max_tokens=500,
                 response_format={"type": "json_object"},
             ),
         )
@@ -50,7 +53,11 @@ async def analyze_alert(alert: dict) -> None:
 
     if not deep_text:
         finish_reason = deep_resp.choices[0].finish_reason
-        logger.warning("Deep model returned empty content for rule '%s' (finish_reason=%s)", rule, finish_reason)
+        logger.warning(
+            "Deep model returned empty content for rule '%s' (finish_reason=%s)",
+            rule,
+            finish_reason,
+        )
 
     try:
         deep_json = json.loads(deep_text)
@@ -70,3 +77,15 @@ async def analyze_alert(alert: dict) -> None:
     print(f"TRIAGE:   {triage_text}")
     print(f"ANALYSIS: {json.dumps(deep_json, indent=2)}")
     print(f"{color}{'='*60}{RESET}\n", flush=True)
+
+    await broadcast(
+        {
+            "id": str(int(datetime.now(timezone.utc).timestamp() * 1000)),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "severity": severity,
+            "scenario": scenario,
+            "rule": rule,
+            "triage": triage_text,
+            "analysis": deep_json,
+        }
+    )
