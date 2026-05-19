@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import FastAPI, Request, BackgroundTasks
@@ -7,7 +8,7 @@ from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from analyzer import analyze_alert
-from state import subscribers, recent_alerts
+from state import subscribers, recent_alerts, falco_logs, attack_logs, log_falco, log_attack
 
 app = FastAPI(title="Falco AI Gateway")
 
@@ -20,6 +21,10 @@ ATTACKERS = {
 }
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -28,6 +33,7 @@ async def health():
 @app.post("/falco-alert")
 async def falco_alert(request: Request, background_tasks: BackgroundTasks):
     alert = await request.json()
+    log_falco({"received_at": _now(), "alert": alert})
     background_tasks.add_task(analyze_alert, alert)
     return {"status": "received", "rule": alert.get("rule")}
 
@@ -40,6 +46,24 @@ async def dashboard():
 @app.get("/api/alerts")
 async def get_alerts():
     return recent_alerts
+
+
+@app.get("/api/falco-logs")
+async def get_falco_logs():
+    return falco_logs
+
+
+@app.get("/api/attack-logs")
+async def get_attack_logs():
+    return attack_logs
+
+
+@app.post("/api/clear")
+async def clear_all():
+    recent_alerts.clear()
+    falco_logs.clear()
+    attack_logs.clear()
+    return {"cleared": True}
 
 
 @app.get("/api/health")
@@ -63,9 +87,11 @@ async def trigger_attack(scenario: str):
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             r = await client.post(f"{base_url}/trigger")
-            return r.json()
+            resp = r.json()
         except Exception as exc:
-            return {"status": "error", "message": str(exc)}
+            resp = {"status": "error", "message": str(exc)}
+    log_attack({"timestamp": _now(), "scenario": scenario, "response": resp})
+    return resp
 
 
 @app.get("/stream")

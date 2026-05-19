@@ -5,104 +5,141 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Docker Security Simulation Lab</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
   <style>
-    .alert-card { animation: slideIn 0.3s ease-out; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-    .risk-bar-fill { transition: width 0.6s ease; }
-    details > summary { list-style: none; cursor: pointer; }
+    .alert-card { animation: slideIn 0.25s ease-out; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .risk-fill { transition: width 0.5s ease; }
+    details > summary { list-style: none; cursor: pointer; user-select: none; }
     details > summary::-webkit-details-marker { display: none; }
+    .tab-btn.active { border-bottom: 2px solid #4f46e5; color: #4338ca; font-weight: 600; }
+    .tab-btn { border-bottom: 2px solid transparent; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    pre { white-space: pre-wrap; word-break: break-all; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
+<body class="bg-slate-50 min-h-screen text-sm font-sans text-gray-800">
 
-  <!-- Header -->
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-    <div class="max-w-screen-xl mx-auto px-6 py-3 flex items-center justify-between">
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+
       <div class="flex items-center gap-3">
-        <span class="text-2xl select-none">🛡️</span>
+        <i class="bi bi-shield-lock-fill text-indigo-600 text-2xl"></i>
         <div>
-          <h1 class="text-lg font-bold text-gray-900 leading-tight">Docker Security Simulation Lab</h1>
-          <p class="text-xs text-gray-400">Falco · AI-Powered Threat Analysis · gpt-4o</p>
+          <h1 class="text-base font-bold text-gray-900 leading-tight">Docker Security Simulation Lab</h1>
+          <p class="text-xs text-gray-400">Falco · Real-time threat detection · AI analysis via gpt-4o</p>
         </div>
       </div>
-      <div class="flex items-center gap-2 text-sm">
-        <span id="conn-dot" class="w-2 h-2 rounded-full bg-gray-300"></span>
-        <span id="conn-text" class="text-gray-400">Connecting…</span>
+
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-1.5 text-xs">
+          <i class="bi bi-broadcast text-gray-400" id="conn-icon"></i>
+          <span id="conn-text" class="text-gray-400">Connecting…</span>
+        </div>
+        <button
+          id="clear-btn"
+          onclick="clearAll()"
+          class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-600 text-gray-500 transition-colors"
+        >
+          <i class="bi bi-trash3"></i> Clear All
+        </button>
       </div>
+
     </div>
   </header>
 
-  <!-- Body -->
-  <div class="max-w-screen-xl mx-auto px-6 py-6 flex gap-6 items-start">
+  <!-- ── Main layout ────────────────────────────────────────────── -->
+  <div class="max-w-screen-2xl mx-auto px-6 py-5 flex gap-5 items-start">
 
-    <!-- ── Left sidebar ─────────────────────────────────────────── -->
-    <aside class="w-72 flex-shrink-0 space-y-5">
+    <!-- ── Left sidebar ──────────────────────────────────────────── -->
+    <aside class="w-64 flex-shrink-0 space-y-4">
 
       <!-- Attack Scenarios -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack Scenarios</h2>
+        <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+          <i class="bi bi-lightning-charge text-gray-400 text-xs"></i>
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack Scenarios</span>
         </div>
         <div class="divide-y divide-gray-100" id="attack-list"></div>
       </div>
 
       <!-- System Health -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">System Health</h2>
+        <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+          <i class="bi bi-heart-pulse text-gray-400 text-xs"></i>
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">System Health</span>
         </div>
-        <div class="p-4 space-y-2" id="health-list">
+        <div class="p-3 space-y-2" id="health-list">
           <p class="text-xs text-gray-400">Checking…</p>
         </div>
       </div>
 
     </aside>
 
-    <!-- ── Live Alert Feed ──────────────────────────────────────── -->
-    <main class="flex-1 min-w-0">
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Live Alert Feed</h2>
-          <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-400" id="alert-count">0 alerts</span>
-            <span class="flex items-center gap-1.5 text-xs text-gray-400">
-              <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse" id="live-dot"></span>
-              Live
-            </span>
-          </div>
-        </div>
+    <!-- ── Main panel ─────────────────────────────────────────────── -->
+    <main class="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
 
-        <div id="alert-feed" style="max-height: calc(100vh - 180px); overflow-y: auto;">
-          <div id="empty-state" class="py-16 text-center">
-            <div class="text-4xl mb-3 select-none">📡</div>
-            <p class="text-sm text-gray-400">No alerts yet.</p>
-            <p class="text-xs text-gray-300 mt-1">Trigger an attack to see AI analysis appear here in real time.</p>
+      <!-- Tab bar -->
+      <div class="flex items-center border-b border-gray-200 px-4 gap-1">
+        <button class="tab-btn active flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600 transition-colors" data-tab="analysis" onclick="switchTab('analysis')">
+          <i class="bi bi-graph-up"></i> AI Analysis
+          <span id="alert-badge" class="ml-1 bg-indigo-100 text-indigo-700 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        </button>
+        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600 transition-colors" data-tab="falco" onclick="switchTab('falco')">
+          <i class="bi bi-file-earmark-text"></i> Falco Logs
+          <span id="falco-badge" class="ml-1 bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        </button>
+        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600 transition-colors" data-tab="attacks" onclick="switchTab('attacks')">
+          <i class="bi bi-clock-history"></i> Attack History
+          <span id="attacks-badge" class="ml-1 bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        </button>
+        <div class="ml-auto flex items-center gap-1.5 text-xs text-gray-400 py-3">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" id="live-dot"></span>
+          Live
+        </div>
+      </div>
+
+      <!-- Tab: AI Analysis -->
+      <div id="tab-analysis" class="tab-panel active" style="max-height: calc(100vh - 148px); overflow-y: auto;">
+        <div id="analysis-feed">
+          <div id="analysis-empty" class="py-16 text-center">
+            <i class="bi bi-radar text-4xl text-gray-200"></i>
+            <p class="text-sm text-gray-400 mt-3">No alerts yet.</p>
+            <p class="text-xs text-gray-300 mt-1">Trigger an attack scenario to see AI-powered threat analysis here.</p>
           </div>
         </div>
       </div>
+
+      <!-- Tab: Falco Logs -->
+      <div id="tab-falco" class="tab-panel" style="max-height: calc(100vh - 148px); overflow-y: auto;">
+        <div id="falco-feed">
+          <div id="falco-empty" class="py-16 text-center">
+            <i class="bi bi-journal-text text-4xl text-gray-200"></i>
+            <p class="text-sm text-gray-400 mt-3">No Falco events received yet.</p>
+            <p class="text-xs text-gray-300 mt-1">Raw Falco alert JSON will appear here as events are detected.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Attack History -->
+      <div id="tab-attacks" class="tab-panel" style="max-height: calc(100vh - 148px); overflow-y: auto;">
+        <div id="attacks-feed">
+          <div id="attacks-empty" class="py-16 text-center">
+            <i class="bi bi-clock-history text-4xl text-gray-200"></i>
+            <p class="text-sm text-gray-400 mt-3">No attacks triggered yet.</p>
+            <p class="text-xs text-gray-300 mt-1">Each time you trigger an attack, it will be logged here with a timestamp.</p>
+          </div>
+        </div>
+      </div>
+
     </main>
 
   </div>
 
   <script>
-    // ── Helpers ─────────────────────────────────────────────────────────────
-    function esc(str) {
-      const d = document.createElement("div");
-      d.textContent = String(str ?? "");
-      return d.innerHTML;
-    }
-
-    function t(el, text) { el.textContent = String(text ?? ""); }
-
-    // ── Scenario metadata ───────────────────────────────────────────────────
-    const SCENARIOS = [
-      { id: "escape",  name: "Container Escape",      cve: "CVE-2024-21626", desc: "runc /proc/self/fd directory traversal",     tag: "T1611", tagCls: "bg-red-50 text-red-600",    icon: "🚪" },
-      { id: "sock",    name: "Docker Socket Abuse",   cve: null,              desc: "Spawn privileged containers via docker.sock", tag: "T1610", tagCls: "bg-orange-50 text-orange-600", icon: "🔌" },
-      { id: "lateral", name: "Lateral Movement",      cve: null,              desc: "nsenter + east-west network scanning",        tag: "T1046", tagCls: "bg-yellow-50 text-yellow-700", icon: "↔️" },
-      { id: "secrets", name: "Secrets Exfiltration",  cve: null,              desc: "Read /etc/shadow and process env vars",       tag: "T1552", tagCls: "bg-purple-50 text-purple-600", icon: "🔑" },
-      { id: "authz",   name: "AuthZ Bypass",          cve: "CVE-2026-34040", desc: "Oversized body bypasses plugin inspection",   tag: "T1610", tagCls: "bg-orange-50 text-orange-600", icon: "🔓" },
-    ];
-
+    // ── Severity styles ─────────────────────────────────────────────────────
     const SEV = {
       CRITICAL: { badge: "bg-red-100 text-red-700 border border-red-200",         bar: "bg-red-400",    lbl: "text-red-700"    },
       HIGH:     { badge: "bg-orange-100 text-orange-700 border border-orange-200", bar: "bg-orange-400", lbl: "text-orange-700" },
@@ -110,74 +147,96 @@
       LOW:      { badge: "bg-green-100 text-green-700 border border-green-200",    bar: "bg-green-400",  lbl: "text-green-700"  },
     };
 
-    // ── Render sidebar attack cards (static content — no user data) ─────────
+    // ── Scenario metadata (no emojis) ────────────────────────────────────────
+    const SCENARIOS = [
+      { id: "escape",  name: "Container Escape",     cve: "CVE-2024-21626", desc: "runc /proc/self/fd directory traversal", tag: "T1611", icon: "bi-door-open",        tagCls: "bg-red-50 text-red-600 border border-red-100"    },
+      { id: "sock",    name: "Docker Socket Abuse",  cve: null,              desc: "Spawn privileged containers via socket", tag: "T1610", icon: "bi-plug",             tagCls: "bg-orange-50 text-orange-600 border border-orange-100" },
+      { id: "lateral", name: "Lateral Movement",     cve: null,              desc: "nsenter + east-west network scanning",  tag: "T1046", icon: "bi-arrow-left-right", tagCls: "bg-yellow-50 text-yellow-700 border border-yellow-100" },
+      { id: "secrets", name: "Secrets Exfiltration", cve: null,              desc: "Read /etc/shadow and process env vars", tag: "T1552", icon: "bi-key",              tagCls: "bg-purple-50 text-purple-600 border border-purple-100" },
+      { id: "authz",   name: "AuthZ Bypass",         cve: "CVE-2026-34040", desc: "Oversized body bypasses plugin check",  tag: "T1610", icon: "bi-unlock",           tagCls: "bg-orange-50 text-orange-600 border border-orange-100" },
+    ];
+
+    // ── Tab switching ────────────────────────────────────────────────────────
+    let activeTab = "analysis";
+    function switchTab(name) {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${name}`));
+      activeTab = name;
+      if (name === "falco")   loadFalcoLogs();
+      if (name === "attacks") loadAttackLogs();
+    }
+
+    // ── Render sidebar attack cards ──────────────────────────────────────────
     function renderAttacks() {
       const list = document.getElementById("attack-list");
       SCENARIOS.forEach(s => {
         const wrap = document.createElement("div");
-        wrap.className = "px-4 py-3";
+        wrap.className = "px-3 py-3";
 
-        // Top row
-        const topRow = document.createElement("div");
-        topRow.className = "flex items-start gap-2 mb-2";
+        const header = document.createElement("div");
+        header.className = "flex items-center gap-2 mb-1.5";
 
-        const iconEl = document.createElement("span");
-        iconEl.className = "text-lg select-none mt-0.5";
-        iconEl.textContent = s.icon;
+        const icon = document.createElement("i");
+        icon.className = `bi ${s.icon} text-gray-400`;
 
-        const textWrap = document.createElement("div");
-        const nameEl = document.createElement("p");
-        nameEl.className = "text-sm font-medium text-gray-800";
-        nameEl.textContent = s.name;
-        const descEl = document.createElement("p");
-        descEl.className = "text-xs text-gray-400 leading-snug";
-        descEl.textContent = s.desc;
-        textWrap.append(nameEl, descEl);
-        topRow.append(iconEl, textWrap);
+        const name = document.createElement("span");
+        name.className = "text-xs font-semibold text-gray-700";
+        name.textContent = s.name;
 
-        // Bottom row: tag, cve, button
-        const botRow = document.createElement("div");
-        botRow.className = "flex items-center gap-2 mt-2";
+        header.append(icon, name);
 
-        const tagEl = document.createElement("span");
-        tagEl.className = `text-xs px-1.5 py-0.5 rounded font-mono ${s.tagCls}`;
-        tagEl.textContent = s.tag;
+        const desc = document.createElement("p");
+        desc.className = "text-xs text-gray-400 leading-snug mb-2 pl-5";
+        desc.textContent = s.desc;
 
-        botRow.appendChild(tagEl);
+        const footer = document.createElement("div");
+        footer.className = "flex items-center gap-1.5 pl-5";
+
+        const tag = document.createElement("span");
+        tag.className = `text-xs px-1.5 py-0.5 rounded font-mono ${s.tagCls}`;
+        tag.textContent = s.tag;
 
         if (s.cve) {
-          const cveEl = document.createElement("span");
-          cveEl.className = "text-xs text-gray-400";
-          cveEl.textContent = s.cve;
-          botRow.appendChild(cveEl);
+          const cve = document.createElement("span");
+          cve.className = "text-xs text-gray-400";
+          cve.textContent = s.cve;
+          footer.append(tag, cve);
+        } else {
+          footer.append(tag);
         }
 
         const btn = document.createElement("button");
-        btn.className = "ml-auto text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-50";
-        btn.textContent = "Trigger";
+        btn.className = "ml-auto text-xs px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1";
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Run';
         btn.addEventListener("click", () => triggerAttack(s.id, btn));
-        botRow.appendChild(btn);
 
-        wrap.append(topRow, botRow);
+        footer.appendChild(btn);
+        wrap.append(header, desc, footer);
         list.appendChild(wrap);
       });
     }
 
-    // ── Trigger an attack via the gateway proxy ─────────────────────────────
+    // ── Trigger attack ───────────────────────────────────────────────────────
     async function triggerAttack(scenario, btn) {
       btn.disabled = true;
-      btn.textContent = "Sending…";
+      btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Running…';
       try {
         const r = await fetch(`/api/trigger/${encodeURIComponent(scenario)}`, { method: "POST" });
         const data = await r.json();
-        btn.textContent = data.status === "attacking" ? "Fired ✓" : "Done";
+        if (data.status === "attacking") {
+          btn.innerHTML = '<i class="bi bi-check-lg"></i> Fired';
+        } else if (data.status === "already_attacking") {
+          btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> Busy';
+        } else {
+          btn.innerHTML = '<i class="bi bi-x-circle"></i> Error';
+        }
       } catch {
-        btn.textContent = "Error";
+        btn.innerHTML = '<i class="bi bi-x-circle"></i> Error';
       }
-      setTimeout(() => { btn.disabled = false; btn.textContent = "Trigger"; }, 3000);
+      setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i> Run'; }, 3500);
     }
 
-    // ── Health check ────────────────────────────────────────────────────────
+    // ── Health status ────────────────────────────────────────────────────────
     async function checkHealth() {
       const list = document.getElementById("health-list");
       try {
@@ -185,19 +244,19 @@
         const data = await r.json();
         list.textContent = "";
         Object.entries(data).forEach(([name, info]) => {
-          const ok = info.status === "ok" || info.status === "attacking";
+          const ok = ["ok", "ready", "attacking"].includes(info.status);
           const row = document.createElement("div");
-          row.className = "flex items-center justify-between";
+          row.className = "flex items-center justify-between py-0.5";
 
           const lbl = document.createElement("span");
-          lbl.className = "text-sm text-gray-600 capitalize";
+          lbl.className = "text-xs text-gray-600 capitalize";
           lbl.textContent = name;
 
           const right = document.createElement("div");
-          right.className = "flex items-center gap-1.5";
+          right.className = "flex items-center gap-1";
 
-          const dot = document.createElement("span");
-          dot.className = `w-2 h-2 rounded-full ${ok ? "bg-green-400" : "bg-red-400"}`;
+          const dot = document.createElement("i");
+          dot.className = `bi bi-circle-fill text-xs ${ok ? "text-green-400" : "text-red-400"}`;
 
           const status = document.createElement("span");
           status.className = `text-xs ${ok ? "text-green-600" : "text-red-500"}`;
@@ -216,15 +275,22 @@
       }
     }
 
-    // ── Alert card renderer ─────────────────────────────────────────────────
+    // ── Alert count badge ────────────────────────────────────────────────────
     let alertCount = 0;
+    function updateAlertBadge() {
+      alertCount++;
+      const badge = document.getElementById("alert-badge");
+      badge.textContent = alertCount;
+      badge.classList.remove("hidden");
+    }
 
+    // ── Helper: add a labeled row to a detail section ────────────────────────
     function addField(parent, label, value) {
-      if (!value && value !== 0) return;
+      if (value === undefined || value === null || value === "") return;
       const row = document.createElement("div");
       row.className = "flex items-start gap-2";
       const lbl = document.createElement("span");
-      lbl.className = "text-xs font-semibold text-gray-400 w-28 flex-shrink-0 pt-0.5";
+      lbl.className = "text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-0.5";
       lbl.textContent = label;
       const val = document.createElement("p");
       val.className = "text-xs text-gray-700 leading-relaxed";
@@ -233,13 +299,13 @@
       parent.appendChild(row);
     }
 
+    // ── Render an AI analysis alert card ────────────────────────────────────
     function renderAlert(alert) {
-      const feed = document.getElementById("alert-feed");
-      const empty = document.getElementById("empty-state");
+      const feed = document.getElementById("analysis-feed");
+      const empty = document.getElementById("analysis-empty");
       if (empty) empty.remove();
 
-      alertCount++;
-      document.getElementById("alert-count").textContent = `${alertCount} alert${alertCount !== 1 ? "s" : ""}`;
+      updateAlertBadge();
 
       const sev = alert.severity || "CRITICAL";
       const style = SEV[sev] || SEV.CRITICAL;
@@ -247,146 +313,215 @@
       const risk = parseInt(a.risk_score ?? 0, 10);
       const ts = alert.timestamp ? new Date(alert.timestamp).toLocaleTimeString() : "";
 
-      // Card container
       const card = document.createElement("div");
-      card.className = "alert-card px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100";
+      card.className = "alert-card px-5 py-4 border-b border-gray-100 hover:bg-slate-50 transition-colors";
 
-      // Top row: severity badge + rule + scenario + timestamp
-      const topRow = document.createElement("div");
-      topRow.className = "flex items-start justify-between gap-4 mb-2";
+      // Header row
+      const header = document.createElement("div");
+      header.className = "flex items-start justify-between gap-4 mb-1.5";
 
       const left = document.createElement("div");
       left.className = "flex items-center gap-2 flex-wrap";
 
       const badge = document.createElement("span");
-      badge.className = `text-xs font-semibold px-2 py-0.5 rounded-full ${style.badge}`;
+      badge.className = `text-xs font-bold px-2 py-0.5 rounded ${style.badge}`;
       badge.textContent = sev;
 
       const ruleName = document.createElement("span");
-      ruleName.className = "text-sm font-medium text-gray-800";
+      ruleName.className = "text-sm font-semibold text-gray-800";
       ruleName.textContent = alert.rule || "Unknown Rule";
 
-      const scenarioBadge = document.createElement("span");
-      scenarioBadge.className = "text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded";
-      scenarioBadge.textContent = alert.scenario || "";
+      const scenarioPill = document.createElement("span");
+      scenarioPill.className = "text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full";
+      scenarioPill.textContent = alert.scenario || "";
 
-      left.append(badge, ruleName, scenarioBadge);
+      left.append(badge, ruleName, scenarioPill);
 
       const tsEl = document.createElement("span");
-      tsEl.className = "text-xs text-gray-400 flex-shrink-0";
+      tsEl.className = "text-xs text-gray-400 flex-shrink-0 font-mono";
       tsEl.textContent = ts;
 
-      topRow.append(left, tsEl);
+      header.append(left, tsEl);
 
-      // Triage text
-      const triageEl = document.createElement("p");
-      triageEl.className = "text-xs text-gray-600 mb-3 leading-relaxed";
-      triageEl.textContent = alert.triage || "";
+      // Triage
+      const triage = document.createElement("p");
+      triage.className = "text-xs text-gray-500 mb-3 leading-relaxed";
+      triage.textContent = alert.triage || "";
 
       // Expandable analysis
       const details = document.createElement("details");
       details.className = "group";
 
       const summary = document.createElement("summary");
-      summary.className = "flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium select-none";
-      summary.innerHTML =
-        '<svg class="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
-        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>' +
-        'View AI Analysis';
+      summary.className = "flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 font-medium";
+      const chevron = document.createElement("i");
+      chevron.className = "bi bi-chevron-right text-xs transition-transform group-open:rotate-90";
+      const summaryText = document.createTextNode(" View AI Analysis");
+      summary.append(chevron, summaryText);
 
       const body = document.createElement("div");
-      body.className = "mt-3 space-y-3 pl-1";
+      body.className = "mt-3 space-y-2.5 pl-1";
 
-      addField(body, "MITRE", a.mitre_technique);
+      addField(body, "MITRE Technique", a.mitre_technique);
       addField(body, "What happened", a.what_happened);
       addField(body, "Misconfiguration", a.misconfiguration);
 
       // Risk bar
       if (a.risk_score !== undefined) {
-        const riskRow = document.createElement("div");
-        riskRow.className = "flex items-start gap-2";
-        const riskLbl = document.createElement("span");
-        riskLbl.className = "text-xs font-semibold text-gray-400 w-28 flex-shrink-0 pt-0.5";
-        riskLbl.textContent = "Risk score";
-        const barWrap = document.createElement("div");
-        barWrap.className = "flex items-center gap-2 flex-1";
+        const row = document.createElement("div");
+        row.className = "flex items-start gap-2";
+        const lbl = document.createElement("span");
+        lbl.className = "text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-0.5";
+        lbl.textContent = "Risk score";
+        const wrap = document.createElement("div");
+        wrap.className = "flex items-center gap-2 flex-1";
         const track = document.createElement("div");
         track.className = "flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden";
         const fill = document.createElement("div");
-        fill.className = `h-full ${style.bar} risk-bar-fill rounded-full`;
+        fill.className = `h-full ${style.bar} risk-fill rounded-full`;
         fill.style.width = `${risk * 10}%`;
         track.appendChild(fill);
         const score = document.createElement("span");
         score.className = `text-xs font-bold ${style.lbl}`;
-        score.textContent = `${risk}/10`;
-        barWrap.append(track, score);
-        riskRow.append(riskLbl, barWrap);
-        body.appendChild(riskRow);
+        score.textContent = `${risk} / 10`;
+        wrap.append(track, score);
+        row.append(lbl, wrap);
+        body.appendChild(row);
       }
 
       addField(body, "Next move", a.predicted_next_move);
 
-      // Hardened config code block
       if (a.hardened_config) {
-        const cfgRow = document.createElement("div");
-        cfgRow.className = "flex items-start gap-2";
-        const cfgLbl = document.createElement("span");
-        cfgLbl.className = "text-xs font-semibold text-gray-400 w-28 flex-shrink-0 pt-1";
-        cfgLbl.textContent = "Hardened config";
+        const row = document.createElement("div");
+        row.className = "flex items-start gap-2";
+        const lbl = document.createElement("span");
+        lbl.className = "text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-1";
+        lbl.textContent = "Hardened config";
         const pre = document.createElement("pre");
-        pre.className = "text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md p-2 flex-1 font-mono leading-relaxed overflow-auto whitespace-pre-wrap break-words";
+        pre.className = "text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 flex-1 font-mono leading-relaxed";
         pre.textContent = String(a.hardened_config);
-        cfgRow.append(cfgLbl, pre);
-        body.appendChild(cfgRow);
+        row.append(lbl, pre);
+        body.appendChild(row);
       }
 
-      // Fallback for unexpected JSON shape
-      if (!a.mitre_technique && !a.what_happened && a.raw !== undefined) {
+      if (!a.mitre_technique && a.raw !== undefined) {
         const pre = document.createElement("pre");
-        pre.className = "text-xs text-gray-600 bg-gray-50 rounded p-2 whitespace-pre-wrap break-words";
+        pre.className = "text-xs text-gray-500 bg-gray-50 rounded p-2";
         pre.textContent = String(a.raw || "");
         body.appendChild(pre);
       }
 
       details.append(summary, body);
-      card.append(topRow, triageEl, details);
+      card.append(header, triage, details);
       feed.insertBefore(card, feed.firstChild);
 
-      // Keep max 30 cards
       const cards = feed.querySelectorAll(".alert-card");
-      if (cards.length > 30) cards[cards.length - 1].remove();
+      if (cards.length > 40) cards[cards.length - 1].remove();
     }
 
-    // ── SSE connection ──────────────────────────────────────────────────────
-    function connectSSE() {
-      const dot = document.getElementById("conn-dot");
-      const text = document.getElementById("conn-text");
-      const liveDot = document.getElementById("live-dot");
+    // ── Render Falco log row ─────────────────────────────────────────────────
+    function renderFalcoLog(entry) {
+      const feed = document.getElementById("falco-feed");
+      const empty = document.getElementById("falco-empty");
+      if (empty) empty.remove();
 
-      const es = new EventSource("/stream");
+      const alert = entry.alert || {};
+      const ts = entry.received_at ? new Date(entry.received_at).toLocaleTimeString() : "";
+      const rule = alert.rule || "Unknown";
+      const priority = alert.priority || "";
 
-      es.onopen = () => {
-        dot.className = "w-2 h-2 rounded-full bg-green-400";
-        t(text, "Connected");
-        text.className = "text-green-600 text-sm";
-        liveDot.className = "w-2 h-2 rounded-full bg-green-400 animate-pulse";
-      };
+      const row = document.createElement("div");
+      row.className = "border-b border-gray-100 px-5 py-3 hover:bg-slate-50 transition-colors";
 
-      es.onmessage = (e) => {
-        try { renderAlert(JSON.parse(e.data)); } catch {}
-      };
+      const header = document.createElement("div");
+      header.className = "flex items-center justify-between mb-1";
 
-      es.onerror = () => {
-        dot.className = "w-2 h-2 rounded-full bg-red-400";
-        t(text, "Reconnecting…");
-        text.className = "text-red-500 text-sm";
-        liveDot.className = "w-2 h-2 rounded-full bg-gray-300";
-        es.close();
-        setTimeout(connectSSE, 5000);
-      };
+      const left = document.createElement("div");
+      left.className = "flex items-center gap-2";
+
+      const priEl = document.createElement("span");
+      priEl.className = "text-xs font-mono text-gray-400";
+      priEl.textContent = priority;
+
+      const ruleEl = document.createElement("span");
+      ruleEl.className = "text-xs font-semibold text-gray-700";
+      ruleEl.textContent = rule;
+
+      left.append(priEl, ruleEl);
+
+      const tsEl = document.createElement("span");
+      tsEl.className = "text-xs text-gray-400 font-mono";
+      tsEl.textContent = ts;
+
+      header.append(left, tsEl);
+
+      const details = document.createElement("details");
+      details.className = "group mt-1";
+      const summary = document.createElement("summary");
+      summary.className = "flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500";
+      const chevron = document.createElement("i");
+      chevron.className = "bi bi-chevron-right text-xs transition-transform group-open:rotate-90";
+      summary.append(chevron, document.createTextNode(" Raw JSON"));
+      const pre = document.createElement("pre");
+      pre.className = "mt-2 text-xs bg-gray-50 border border-gray-200 rounded p-2 font-mono text-gray-600 leading-relaxed max-h-40 overflow-y-auto";
+      pre.textContent = JSON.stringify(alert, null, 2);
+      details.append(summary, pre);
+
+      row.append(header, details);
+      feed.insertBefore(row, feed.firstChild);
+
+      const rows = feed.querySelectorAll("div.border-b");
+      if (rows.length > 100) rows[rows.length - 1].remove();
+
+      const badge = document.getElementById("falco-badge");
+      badge.textContent = parseInt(badge.textContent || "0") + 1;
+      badge.classList.remove("hidden");
     }
 
-    // ── Load existing alerts on page open ───────────────────────────────────
+    // ── Render attack history row ────────────────────────────────────────────
+    function renderAttackLog(entry) {
+      const feed = document.getElementById("attacks-feed");
+      const empty = document.getElementById("attacks-empty");
+      if (empty) empty.remove();
+
+      const ts = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : "";
+      const scenario = entry.scenario || "unknown";
+      const resp = entry.response || {};
+      const ok = resp.status === "attacking";
+
+      const row = document.createElement("div");
+      row.className = "flex items-center justify-between px-5 py-3 border-b border-gray-100 hover:bg-slate-50 transition-colors";
+
+      const left = document.createElement("div");
+      left.className = "flex items-center gap-3";
+
+      const icon = document.createElement("i");
+      icon.className = `bi ${ok ? "bi-check-circle text-green-500" : "bi-x-circle text-red-400"} text-sm`;
+
+      const scenarioEl = document.createElement("div");
+      const nameEl = document.createElement("span");
+      nameEl.className = "text-xs font-semibold text-gray-700 capitalize";
+      nameEl.textContent = scenario;
+      const statusEl = document.createElement("p");
+      statusEl.className = "text-xs text-gray-400";
+      statusEl.textContent = resp.status || "unknown";
+      scenarioEl.append(nameEl, statusEl);
+
+      left.append(icon, scenarioEl);
+
+      const right = document.createElement("span");
+      right.className = "text-xs text-gray-400 font-mono";
+      right.textContent = ts;
+
+      row.append(left, right);
+      feed.insertBefore(row, feed.firstChild);
+
+      const badge = document.getElementById("attacks-badge");
+      badge.textContent = parseInt(badge.textContent || "0") + 1;
+      badge.classList.remove("hidden");
+    }
+
+    // ── Load historical data ─────────────────────────────────────────────────
     async function loadRecentAlerts() {
       try {
         const r = await fetch("/api/alerts");
@@ -395,7 +530,95 @@
       } catch {}
     }
 
-    // ── Boot ────────────────────────────────────────────────────────────────
+    async function loadFalcoLogs() {
+      try {
+        const r = await fetch("/api/falco-logs");
+        const logs = await r.json();
+        document.getElementById("falco-feed").textContent = "";
+        document.getElementById("falco-empty")?.remove();
+        logs.slice().reverse().forEach(renderFalcoLog);
+      } catch {}
+    }
+
+    async function loadAttackLogs() {
+      try {
+        const r = await fetch("/api/attack-logs");
+        const logs = await r.json();
+        document.getElementById("attacks-feed").textContent = "";
+        document.getElementById("attacks-empty")?.remove();
+        logs.slice().reverse().forEach(renderAttackLog);
+      } catch {}
+    }
+
+    // ── Clear all ────────────────────────────────────────────────────────────
+    async function clearAll() {
+      await fetch("/api/clear", { method: "POST" });
+
+      alertCount = 0;
+      document.getElementById("alert-badge").textContent = "0";
+      document.getElementById("alert-badge").classList.add("hidden");
+      document.getElementById("falco-badge").textContent = "0";
+      document.getElementById("falco-badge").classList.add("hidden");
+      document.getElementById("attacks-badge").textContent = "0";
+      document.getElementById("attacks-badge").classList.add("hidden");
+
+      document.getElementById("analysis-feed").innerHTML =
+        '<div id="analysis-empty" class="py-16 text-center">' +
+        '<i class="bi bi-radar text-4xl text-gray-200"></i>' +
+        '<p class="text-sm text-gray-400 mt-3">No alerts yet.</p>' +
+        '<p class="text-xs text-gray-300 mt-1">Trigger an attack scenario to see AI-powered threat analysis here.</p></div>';
+
+      document.getElementById("falco-feed").innerHTML =
+        '<div id="falco-empty" class="py-16 text-center">' +
+        '<i class="bi bi-journal-text text-4xl text-gray-200"></i>' +
+        '<p class="text-sm text-gray-400 mt-3">No Falco events received yet.</p></div>';
+
+      document.getElementById("attacks-feed").innerHTML =
+        '<div id="attacks-empty" class="py-16 text-center">' +
+        '<i class="bi bi-clock-history text-4xl text-gray-200"></i>' +
+        '<p class="text-sm text-gray-400 mt-3">No attacks triggered yet.</p></div>';
+    }
+
+    // ── SSE connection ───────────────────────────────────────────────────────
+    function connectSSE() {
+      const connIcon = document.getElementById("conn-icon");
+      const connText = document.getElementById("conn-text");
+      const liveDot  = document.getElementById("live-dot");
+
+      const es = new EventSource("/stream");
+
+      es.onopen = () => {
+        connIcon.className = "bi bi-broadcast text-green-500";
+        connText.textContent = "Connected";
+        connText.className = "text-green-600";
+        liveDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse";
+      };
+
+      es.onmessage = (e) => {
+        try {
+          const alert = JSON.parse(e.data);
+          renderAlert(alert);
+          // Also mirror to Falco logs tab if it has the raw event
+        } catch {}
+      };
+
+      es.onerror = () => {
+        connIcon.className = "bi bi-broadcast text-red-400";
+        connText.textContent = "Reconnecting…";
+        connText.className = "text-red-500";
+        liveDot.className = "w-1.5 h-1.5 rounded-full bg-gray-300";
+        es.close();
+        setTimeout(connectSSE, 5000);
+      };
+    }
+
+    // ── Poll Falco/Attack logs when those tabs are active ────────────────────
+    setInterval(() => {
+      if (activeTab === "falco")   loadFalcoLogs();
+      if (activeTab === "attacks") loadAttackLogs();
+    }, 4000);
+
+    // ── Boot ─────────────────────────────────────────────────────────────────
     renderAttacks();
     loadRecentAlerts();
     checkHealth();

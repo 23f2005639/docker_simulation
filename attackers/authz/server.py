@@ -17,9 +17,17 @@ def trigger():
     if _attacking:
         return jsonify({"status": "already_attacking"})
     _attacking = True
-    t = threading.Thread(target=run_attack, daemon=True)
+    t = threading.Thread(target=_run_attack, daemon=True)
     t.start()
     return jsonify({"status": "attacking", "scenario": "authz-bypass-CVE-2026-34040"})
+
+
+def _run_attack():
+    global _attacking
+    try:
+        run_attack()
+    finally:
+        _attacking = False
 
 
 if __name__ == "__main__":

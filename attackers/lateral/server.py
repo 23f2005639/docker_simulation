@@ -17,12 +17,17 @@ def trigger():
     if _attacking:
         return jsonify({"status": "already_attacking"})
     _attacking = True
-    t = threading.Thread(
-        target=lambda: subprocess.run(["/bin/bash", "/attack.sh"], check=False),
-        daemon=True,
-    )
+    t = threading.Thread(target=_run_attack, daemon=True)
     t.start()
     return jsonify({"status": "attacking", "scenario": "lateral-movement"})
+
+
+def _run_attack():
+    global _attacking
+    try:
+        subprocess.run(["/bin/bash", "/attack.sh"], check=False)
+    finally:
+        _attacking = False
 
 
 if __name__ == "__main__":

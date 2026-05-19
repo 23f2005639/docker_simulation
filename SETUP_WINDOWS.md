@@ -1,5 +1,19 @@
 # Windows Setup Guide — Docker Security Simulation Lab
 
+## Will Falco Run on Windows?
+
+**Yes.** Docker Desktop for Windows runs all containers inside a WSL 2 virtual machine, which uses a real Linux kernel (5.15+). Falco's modern eBPF probe targets that WSL 2 kernel, so it can monitor syscalls from all containers — attackers and victims alike.
+
+Key points:
+- The eBPF probe is downloaded automatically on first run (~30–60 seconds, needs internet)
+- All the required mounts (`/sys/fs/bpf`, `/sys/kernel/debug`, `/proc`) exist inside the WSL 2 VM and work correctly
+- Falco monitors container-to-container activity, which is exactly what this lab simulates
+- Falco does **not** see native Windows processes (only the WSL 2 VM), but that is fine for this lab
+
+If Falco fails to start, the most common fix is enabling WSL Integration in Docker Desktop → Settings → Resources → WSL Integration.
+
+---
+
 ## Prerequisites
 
 ### 1. Install Docker Desktop

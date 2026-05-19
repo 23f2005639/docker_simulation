@@ -23,7 +23,11 @@ def trigger():
 
 
 def _run_attack():
-    subprocess.run(["/bin/bash", "/attack.sh"], check=False)
+    global _attacking
+    try:
+        subprocess.run(["/bin/bash", "/attack.sh"], check=False)
+    finally:
+        _attacking = False
 
 
 if __name__ == "__main__":
