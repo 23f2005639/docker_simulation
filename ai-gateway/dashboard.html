@@ -162,8 +162,6 @@
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
       document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${name}`));
       activeTab = name;
-      if (name === "falco")   loadFalcoLogs();
-      if (name === "attacks") loadAttackLogs();
     }
 
     // ── Render sidebar attack cards ──────────────────────────────────────────
@@ -275,13 +273,20 @@
       }
     }
 
-    // ── Alert count badge ────────────────────────────────────────────────────
+    // ── Badge helpers ────────────────────────────────────────────────────────
     let alertCount = 0;
+    let lastFalcoCount = 0;
+    let lastAttackCount = 0;
+
+    function setBadge(id, count) {
+      const el = document.getElementById(id);
+      el.textContent = count;
+      el.classList.toggle("hidden", count === 0);
+    }
+
     function updateAlertBadge() {
       alertCount++;
-      const badge = document.getElementById("alert-badge");
-      badge.textContent = alertCount;
-      badge.classList.remove("hidden");
+      setBadge("alert-badge", alertCount);
     }
 
     // ── Helper: add a labeled row to a detail section ────────────────────────
@@ -472,10 +477,6 @@
 
       const rows = feed.querySelectorAll("div.border-b");
       if (rows.length > 100) rows[rows.length - 1].remove();
-
-      const badge = document.getElementById("falco-badge");
-      badge.textContent = parseInt(badge.textContent || "0") + 1;
-      badge.classList.remove("hidden");
     }
 
     // ── Render attack history row ────────────────────────────────────────────
@@ -515,10 +516,6 @@
 
       row.append(left, right);
       feed.insertBefore(row, feed.firstChild);
-
-      const badge = document.getElementById("attacks-badge");
-      badge.textContent = parseInt(badge.textContent || "0") + 1;
-      badge.classList.remove("hidden");
     }
 
     // ── Load historical data ─────────────────────────────────────────────────
@@ -530,23 +527,31 @@
       } catch {}
     }
 
-    async function loadFalcoLogs() {
+    async function pollFalcoLogs() {
       try {
         const r = await fetch("/api/falco-logs");
         const logs = await r.json();
-        document.getElementById("falco-feed").textContent = "";
-        document.getElementById("falco-empty")?.remove();
-        logs.slice().reverse().forEach(renderFalcoLog);
+        const newItems = logs.slice(lastFalcoCount);
+        if (newItems.length) {
+          document.getElementById("falco-empty")?.remove();
+          newItems.forEach(renderFalcoLog);
+        }
+        lastFalcoCount = logs.length;
+        setBadge("falco-badge", lastFalcoCount);
       } catch {}
     }
 
-    async function loadAttackLogs() {
+    async function pollAttackLogs() {
       try {
         const r = await fetch("/api/attack-logs");
         const logs = await r.json();
-        document.getElementById("attacks-feed").textContent = "";
-        document.getElementById("attacks-empty")?.remove();
-        logs.slice().reverse().forEach(renderAttackLog);
+        const newItems = logs.slice(lastAttackCount);
+        if (newItems.length) {
+          document.getElementById("attacks-empty")?.remove();
+          newItems.forEach(renderAttackLog);
+        }
+        lastAttackCount = logs.length;
+        setBadge("attacks-badge", lastAttackCount);
       } catch {}
     }
 
@@ -557,10 +562,10 @@
       alertCount = 0;
       document.getElementById("alert-badge").textContent = "0";
       document.getElementById("alert-badge").classList.add("hidden");
-      document.getElementById("falco-badge").textContent = "0";
-      document.getElementById("falco-badge").classList.add("hidden");
-      document.getElementById("attacks-badge").textContent = "0";
-      document.getElementById("attacks-badge").classList.add("hidden");
+      lastFalcoCount = 0;
+      lastAttackCount = 0;
+      setBadge("falco-badge", 0);
+      setBadge("attacks-badge", 0);
 
       document.getElementById("analysis-feed").innerHTML =
         '<div id="analysis-empty" class="py-16 text-center">' +
@@ -612,15 +617,17 @@
       };
     }
 
-    // ── Poll Falco/Attack logs when those tabs are active ────────────────────
+    // ── Poll Falco/Attack logs in parallel regardless of active tab ──────────
     setInterval(() => {
-      if (activeTab === "falco")   loadFalcoLogs();
-      if (activeTab === "attacks") loadAttackLogs();
+      pollFalcoLogs();
+      pollAttackLogs();
     }, 4000);
 
     // ── Boot ─────────────────────────────────────────────────────────────────
     renderAttacks();
     loadRecentAlerts();
+    pollFalcoLogs();
+    pollAttackLogs();
     checkHealth();
     setInterval(checkHealth, 8000);
     connectSSE();
