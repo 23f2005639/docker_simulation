@@ -16,12 +16,31 @@
     .tab-btn.active { border-bottom: 2px solid #4f46e5; color: #4338ca; font-weight: 600; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
+    #tab-simulation.active { display: block; }
     .filter-chip { transition: background 0.15s, color 0.15s; }
     .filter-chip.active { background: #e0e7ff; color: #3730a3; font-weight: 600; }
     .mitre-chip:hover { opacity: 0.8; cursor: pointer; }
     .reviewed { background: #f0fdf4 !important; }
     pre { white-space: pre-wrap; word-break: break-all; }
     .stat-num { font-variant-numeric: tabular-nums; }
+
+    /* ── Attack Simulation Animations ── */
+    @keyframes attackerPulse { 0%,100%{filter:drop-shadow(0 0 0px #ef4444)} 50%{filter:drop-shadow(0 0 10px #ef4444)} }
+    @keyframes packetTravel  { from{stroke-dashoffset:400} to{stroke-dashoffset:0} }
+    @keyframes falcoFlash    { 0%,100%{fill:#1e1b4b} 25%{fill:#fef3c7} 75%{fill:#fde68a} }
+    @keyframes badgePop      { 0%{opacity:0;transform:scale(0.5)} 70%{transform:scale(1.15)} 100%{opacity:1;transform:scale(1)} }
+    @keyframes tacticPulse   { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 0 3px #6366f1,0 0 12px #a5b4fc} }
+    @keyframes stepSlide     { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes detectedGlow  { 0%,100%{filter:drop-shadow(0 0 0px #22c55e)} 50%{filter:drop-shadow(0 0 8px #22c55e)} }
+    .attacker-pulse  { animation: attackerPulse 0.5s ease-in-out 5; }
+    .packet-path     { stroke-dasharray:400; stroke-dashoffset:400; animation: packetTravel 1.0s linear forwards; }
+    .falco-flash     { animation: falcoFlash 0.4s ease-in-out 3; }
+    .badge-pop       { animation: badgePop 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+    .tactic-active   { animation: tacticPulse 0.7s ease-in-out 2; }
+    .step-visible    { animation: stepSlide 0.3s ease-out forwards; }
+    .step-hidden     { opacity: 0; }
+    .victim-detected { animation: detectedGlow 0.5s ease-in-out 4; }
+    .topo-box        { transition: filter 0.3s; }
   </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-sm font-sans text-gray-800">
@@ -132,6 +151,9 @@
         <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="research" onclick="switchTab('research')">
           <i class="bi bi-clipboard2-data"></i> Research Summary
         </button>
+        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="simulation" onclick="switchTab('simulation')">
+          <i class="bi bi-diagram-3-fill"></i> Attack Simulation
+        </button>
         <div class="ml-auto flex items-center gap-1.5 text-xs text-gray-400 py-3">
           <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" id="live-dot"></span>
           Live
@@ -186,6 +208,210 @@
           <div class="py-16 text-center">
             <i class="bi bi-clipboard2-data text-4xl text-gray-200"></i>
             <p class="text-sm text-gray-400 mt-3">Switch to this tab after running attacks to see your research summary.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Attack Simulation -->
+      <div id="tab-simulation" class="tab-panel" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+        <div class="p-4 flex gap-4" style="min-height: 520px;">
+
+          <!-- Panel A: Container Network Topology SVG (40%) -->
+          <div class="flex-shrink-0 bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col" style="width:42%">
+            <div class="px-4 py-2.5 border-b border-slate-700 flex items-center gap-2">
+              <i class="bi bi-hdd-network text-indigo-400 text-xs"></i>
+              <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Container Network Topology</span>
+              <span id="topo-status" class="ml-auto text-xs text-slate-500 font-mono">idle</span>
+            </div>
+            <div class="flex-1 p-2 overflow-hidden">
+              <svg id="topo-svg" viewBox="0 0 900 540" class="w-full h-full" style="min-height:340px">
+                <defs>
+                  <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                    <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+                  </pattern>
+                  <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="3" refY="2" orient="auto">
+                    <polygon points="0 0, 6 2, 0 4" fill="#ef4444"/>
+                  </marker>
+                </defs>
+                <rect width="900" height="540" fill="url(#grid)"/>
+
+                <!-- Monitoring lines (dashed gray) from each cluster center to Falco -->
+                <line x1="450" y1="87" x2="450" y2="235" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+                <line x1="740" y1="172" x2="475" y2="254" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+                <line x1="685" y1="420" x2="470" y2="278" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+                <line x1="215" y1="420" x2="430" y2="278" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+                <line x1="160" y1="172" x2="425" y2="254" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+
+                <!-- ── escape-net cluster (top center) ── -->
+                <rect class="topo-box" x="360" y="20" width="180" height="84" rx="9" fill="#0f172a" stroke="#dc2626" stroke-width="1.5"/>
+                <text x="450" y="36" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">escape-net</text>
+                <text x="450" y="49" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.1.0/24</text>
+                <circle id="node-escape-attacker" cx="405" cy="75" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+                <text x="405" y="79" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+                <circle id="node-escape-victim" cx="492" cy="75" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+                <text x="492" y="79" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+                <line x1="419" y1="75" x2="479" y2="75" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+
+                <!-- ── sock-net cluster (top right) ── -->
+                <rect class="topo-box" x="660" y="125" width="170" height="84" rx="9" fill="#0f172a" stroke="#ea580c" stroke-width="1.5"/>
+                <text x="745" y="141" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">sock-net</text>
+                <text x="745" y="154" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.2.0/24</text>
+                <circle id="node-sock-attacker" cx="698" cy="182" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+                <text x="698" y="186" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+                <circle id="node-sock-victim" cx="778" cy="182" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+                <text x="778" y="186" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+                <line x1="712" y1="182" x2="765" y2="182" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+
+                <!-- ── authz-net cluster (bottom right) ── -->
+                <rect class="topo-box" x="610" y="385" width="170" height="84" rx="9" fill="#0f172a" stroke="#d97706" stroke-width="1.5"/>
+                <text x="695" y="401" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">authz-net</text>
+                <text x="695" y="414" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.5.0/24</text>
+                <circle id="node-authz-attacker" cx="645" cy="442" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+                <text x="645" y="446" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+                <circle id="node-authz-victim" cx="725" cy="442" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+                <text x="725" y="446" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+                <line x1="659" y1="442" x2="712" y2="442" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+
+                <!-- ── secrets-net cluster (bottom left) ── -->
+                <rect class="topo-box" x="120" y="385" width="180" height="84" rx="9" fill="#0f172a" stroke="#7c3aed" stroke-width="1.5"/>
+                <text x="210" y="401" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">secrets-net</text>
+                <text x="210" y="414" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.4.0/24</text>
+                <circle id="node-secrets-attacker" cx="155" cy="442" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+                <text x="155" y="446" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+                <circle id="node-secrets-victim" cx="248" cy="442" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+                <text x="248" y="446" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+                <line x1="169" y1="442" x2="235" y2="442" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+
+                <!-- ── lateral-net cluster (top left) ── -->
+                <rect class="topo-box" x="58" y="110" width="192" height="110" rx="9" fill="#0f172a" stroke="#ca8a04" stroke-width="1.5"/>
+                <text x="154" y="127" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">lateral-net</text>
+                <text x="154" y="140" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.3.0/24</text>
+                <circle id="node-lateral-attacker" cx="88" cy="180" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+                <text x="88" y="184" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+                <circle id="node-lateral-victim-a" cx="164" cy="160" r="12" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+                <text x="164" y="164" text-anchor="middle" fill="#93c5fd" font-size="6.5" font-family="monospace">VIC-A</text>
+                <circle id="node-lateral-victim-b" cx="215" cy="195" r="12" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+                <text x="215" y="199" text-anchor="middle" fill="#93c5fd" font-size="6.5" font-family="monospace">VIC-B</text>
+                <line x1="102" y1="180" x2="152" y2="165" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+                <line x1="102" y1="185" x2="203" y2="195" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+
+                <!-- ── Falco center node ── -->
+                <circle cx="450" cy="266" r="35" fill="#1e1b4b" stroke="#4f46e5" stroke-width="2.5" opacity="0.3"/>
+                <circle id="node-falco" cx="450" cy="266" r="26" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+                <text x="450" y="261" text-anchor="middle" fill="#a5b4fc" font-size="9" font-family="monospace" font-weight="bold">FALCO</text>
+                <text x="450" y="274" text-anchor="middle" fill="#6366f1" font-size="7.5" font-family="monospace">eBPF monitor</text>
+                <text x="450" y="311" text-anchor="middle" fill="#334155" font-size="7.5" font-family="monospace">monitoring-net 172.20.6.0/24</text>
+
+                <!-- ── Animated packet paths (initially hidden, revealed by JS) ── -->
+                <path id="pkt-escape"  d="M405,61  Q428,148 450,240" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                <path id="pkt-sock"    d="M698,168 Q588,204 475,256" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                <path id="pkt-authz"   d="M645,428 Q558,356 467,280" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                <path id="pkt-secrets" d="M155,428 Q304,354 432,280" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                <path id="pkt-lateral" d="M88,166  Q272,204 424,257" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+
+                <!-- ── Detection badges (initially hidden) ── -->
+                <g id="badge-escape" opacity="0">
+                  <rect x="398" y="11" width="62" height="16" rx="5" fill="#dc2626"/>
+                  <text x="429" y="22.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
+                </g>
+                <g id="badge-sock" opacity="0">
+                  <rect x="704" y="116" width="62" height="16" rx="5" fill="#dc2626"/>
+                  <text x="735" y="127.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
+                </g>
+                <g id="badge-authz" opacity="0">
+                  <rect x="648" y="376" width="62" height="16" rx="5" fill="#dc2626"/>
+                  <text x="679" y="387.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
+                </g>
+                <g id="badge-secrets" opacity="0">
+                  <rect x="152" y="376" width="62" height="16" rx="5" fill="#7c3aed"/>
+                  <text x="183" y="387.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
+                </g>
+                <g id="badge-lateral" opacity="0">
+                  <rect x="56" y="100" width="62" height="16" rx="5" fill="#dc2626"/>
+                  <text x="87" y="111.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Panels B + C: right column (58%) -->
+          <div class="flex-1 flex flex-col gap-3 min-w-0">
+
+            <!-- Panel B: MITRE ATT&CK Tactic Progression -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+                <i class="bi bi-map text-indigo-400 text-xs"></i>
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">MITRE ATT&amp;CK Tactic Progression</span>
+                <span class="ml-auto text-xs text-gray-300">Highlights on detection</span>
+              </div>
+              <div class="p-3 grid grid-cols-3 gap-2">
+                <div id="tactic-execution" class="tactic-box rounded-lg border border-gray-200 p-2.5">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <i class="bi bi-play-circle text-gray-300 text-xs"></i>
+                    <span class="text-xs font-bold text-gray-600">Execution</span>
+                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0002</span>
+                  </div>
+                  <div id="chips-execution" class="flex flex-wrap gap-1 min-h-4"></div>
+                </div>
+                <div id="tactic-privilege-escalation" class="tactic-box rounded-lg border border-gray-200 p-2.5">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <i class="bi bi-arrow-up-circle text-gray-300 text-xs"></i>
+                    <span class="text-xs font-bold text-gray-600">Privilege Escalation</span>
+                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0004</span>
+                  </div>
+                  <div id="chips-privilege-escalation" class="flex flex-wrap gap-1 min-h-4"></div>
+                </div>
+                <div id="tactic-defense-evasion" class="tactic-box rounded-lg border border-gray-200 p-2.5">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <i class="bi bi-shield-slash text-gray-300 text-xs"></i>
+                    <span class="text-xs font-bold text-gray-600">Defense Evasion</span>
+                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0005</span>
+                  </div>
+                  <div id="chips-defense-evasion" class="flex flex-wrap gap-1 min-h-4"></div>
+                </div>
+                <div id="tactic-credential-access" class="tactic-box rounded-lg border border-gray-200 p-2.5">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <i class="bi bi-key text-gray-300 text-xs"></i>
+                    <span class="text-xs font-bold text-gray-600">Credential Access</span>
+                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0006</span>
+                  </div>
+                  <div id="chips-credential-access" class="flex flex-wrap gap-1 min-h-4"></div>
+                </div>
+                <div id="tactic-discovery" class="tactic-box rounded-lg border border-gray-200 p-2.5">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <i class="bi bi-binoculars text-gray-300 text-xs"></i>
+                    <span class="text-xs font-bold text-gray-600">Discovery</span>
+                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0007</span>
+                  </div>
+                  <div id="chips-discovery" class="flex flex-wrap gap-1 min-h-4"></div>
+                </div>
+                <div id="tactic-lateral-movement" class="tactic-box rounded-lg border border-gray-200 p-2.5">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <i class="bi bi-arrow-left-right text-gray-300 text-xs"></i>
+                    <span class="text-xs font-bold text-gray-600">Lateral Movement</span>
+                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0008</span>
+                  </div>
+                  <div id="chips-lateral-movement" class="flex flex-wrap gap-1 min-h-4"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel C: Forensic Attack Step Timeline -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex-1">
+              <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+                <i class="bi bi-terminal text-indigo-400 text-xs"></i>
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Forensic Attack Timeline</span>
+                <span id="timeline-scenario-label" class="ml-2 hidden text-xs font-mono bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full"></span>
+                <span class="ml-auto text-xs text-gray-300">step-by-step syscall replay</span>
+              </div>
+              <div id="forensic-timeline" class="p-3 space-y-0 overflow-y-auto" style="max-height: 300px;">
+                <div id="timeline-empty" class="py-10 text-center">
+                  <i class="bi bi-terminal text-3xl text-gray-200"></i>
+                  <p class="text-xs text-gray-400 mt-2">Run an attack to watch the forensic step-by-step replay.</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -372,6 +598,7 @@
         const data = await r.json();
         if (data.status === "attacking") {
           btn.innerHTML = '<i class="bi bi-check-lg"></i> Fired';
+          startStepTimeline(scenario);
         } else if (data.status === "already_attacking") {
           btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> Busy';
         } else {
@@ -455,6 +682,7 @@
     // ── Render AI alert card ──────────────────────────────────────────────────
     function renderAlert(alert) {
       localAlerts.push(alert);
+      updateSimulation(alert);
       const feed = document.getElementById("analysis-feed");
       document.getElementById("analysis-empty")?.remove();
 
@@ -958,6 +1186,7 @@
 
     // ── Clear all ─────────────────────────────────────────────────────────────
     async function clearAll() {
+      resetSimulation();
       await fetch("/api/clear", { method: "POST" });
 
       localAlerts.length = 0;
@@ -1019,6 +1248,283 @@
         es.close();
         setTimeout(connectSSE, 5000);
       };
+    }
+
+    // ── Attack Simulation ────────────────────────────────────────────────────
+
+    const SIM_SCENARIO_TACTICS = {
+      escape:  ["privilege-escalation"],
+      sock:    ["execution", "defense-evasion"],
+      lateral: ["discovery", "lateral-movement"],
+      secrets: ["credential-access"],
+      authz:   ["defense-evasion"],
+    };
+
+    const SIM_TECHNIQUE_TO_TACTICS = {
+      "T1611": ["privilege-escalation"],
+      "T1610": ["execution", "defense-evasion"],
+      "T1046": ["discovery"],
+      "T1609": ["lateral-movement"],
+      "T1552": ["credential-access"],
+    };
+
+    const SIM_NODES = {
+      escape:  { attacker: "node-escape-attacker",   victims: ["node-escape-victim"] },
+      sock:    { attacker: "node-sock-attacker",      victims: ["node-sock-victim"] },
+      lateral: { attacker: "node-lateral-attacker",   victims: ["node-lateral-victim-a", "node-lateral-victim-b"] },
+      secrets: { attacker: "node-secrets-attacker",   victims: ["node-secrets-victim"] },
+      authz:   { attacker: "node-authz-attacker",     victims: ["node-authz-victim"] },
+    };
+
+    const SIM_STEPS = {
+      escape: [
+        { cmd: "ls -la /proc/self/fd/",                            syscall: "openat(AT_FDCWD, '/proc/self/fd', O_RDONLY)",         rule: "(enumerate host fd symlinks)" },
+        { cmd: "cd /proc/self/fd && pwd",                          syscall: "chdir('/proc/self/fd') → getcwd()",                  rule: "ALERT  Container Escape via runc fd Leak (CVE-2024-21626) — proc.cwd=/proc/self/fd [CRITICAL]" },
+        { cmd: "readlink -f /proc/self/fd/7",                      syscall: "readlinkat(AT_FDCWD, '/proc/self/fd/7', ...)",        rule: "(resolve fd symlink → host filesystem path)" },
+        { cmd: "ls /proc/self/fd/7/etc/passwd",                    syscall: "openat(fd7, 'etc/passwd', O_RDONLY)",                 rule: "(read host /etc/passwd through leaked fd)" },
+      ],
+      sock: [
+        { cmd: "curl --unix-socket /var/run/docker.sock http://localhost/containers/json",    syscall: "connect(sockfd, '/var/run/docker.sock', AF_UNIX)",    rule: "ALERT  Docker Socket Access from Container — fd.name~=docker.sock [CRITICAL]" },
+        { cmd: "GET /containers/json → parse container list",      syscall: "recv(sockfd, buf, ...)",                             rule: "(enumerate 13 running containers)" },
+        { cmd: "POST /containers/create?name=attacker-spawned",    syscall: "send(sockfd, '{Privileged:true,Binds:[\"/:/host\"]}', ...)", rule: "ALERT  New Privileged Container Created via Socket [CRITICAL]" },
+        { cmd: "POST /containers/{id}/start",                      syscall: "send(sockfd, 'POST /start HTTP/1.1...', ...)",       rule: "(start privileged container with host-root bind mount)" },
+      ],
+      lateral: [
+        { cmd: "apt-get install -y nmap",                          syscall: "execve('/usr/bin/apt-get', ['apt-get','install','-y','nmap'])", rule: "(install network reconnaissance tool)" },
+        { cmd: "nmap -sn 172.20.3.0/24",                           syscall: "socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)",            rule: "ALERT  Unexpected Internal Network Scan — proc.name=nmap [WARNING]" },
+        { cmd: "curl -s --max-time 3 http://victim-lat-a/",        syscall: "connect(sockfd, '172.20.3.x:80', AF_INET)",          rule: "(HTTP probe → victim-lat-a responds 200 OK)" },
+        { cmd: "curl -s --max-time 3 http://victim-lat-b/",        syscall: "connect(sockfd, '172.20.3.y:80', AF_INET)",          rule: "(HTTP probe → victim-lat-b responds 200 OK)" },
+        { cmd: "nsenter --target 1 --mount --uts --ipc --net -- hostname", syscall: "setns(fd_mnt, CLONE_NEWNS) → setns(fd_net, CLONE_NEWNET)", rule: "ALERT  Lateral Movement via nsenter — proc.name=nsenter [WARNING]" },
+      ],
+      secrets: [
+        { cmd: "cat /etc/shadow",                                  syscall: "openat(AT_FDCWD, '/etc/shadow', O_RDONLY)",          rule: "ALERT  Sensitive File Read in Container — fd.name=/etc/shadow [WARNING]" },
+        { cmd: "find /var/run/secrets -type f",                    syscall: "openat(AT_FDCWD, '/var/run/secrets', O_RDONLY)",     rule: "(scan Kubernetes secrets mount — 3 files found)" },
+        { cmd: "cat /proc/1/environ | tr '\\0' '\\n'",            syscall: "openat(AT_FDCWD, '/proc/1/environ', O_RDONLY)",      rule: "ALERT  Process Environment Dump — fd.name=/proc/1/environ [NOTICE]" },
+        { cmd: "grep -iE 'password|api_key|jwt|token' /proc/1/environ", syscall: "read(fd, buf, 4096)",                         rule: "(extract: DATABASE_PASSWORD, API_KEY, JWT_SECRET from victim-secrets env)" },
+      ],
+      authz: [
+        { cmd: "payload = b'A' * 1_100_000  # 1.1MB padding",     syscall: "mmap(NULL, 1100000, PROT_READ|PROT_WRITE, ...)",     rule: "(allocate oversized body — exceeds AuthZ plugin 1MB inspection limit)" },
+        { cmd: "socket.connect('/var/run/docker.sock')",           syscall: "connect(sockfd, '/var/run/docker.sock', AF_UNIX)",   rule: "ALERT  Docker Socket Access from Container — fd.name~=docker.sock [CRITICAL]" },
+        { cmd: "sock.sendall(b'POST /containers/create HTTP/1.1\\r\\nContent-Length: 1100247\\r\\n...')", syscall: "sendto(sockfd, payload, 1100247, MSG_NOSIGNAL)", rule: "ALERT  Docker AuthZ Bypass via Oversized Request (CVE-2026-34040) [CRITICAL]" },
+        { cmd: "# Docker daemon processes truncated body — AuthZ plugin sees empty JSON → allows", syscall: "recv(sockfd, response, ...)",  rule: "(HTTP 201 Created — privileged container spawned without authorization check)" },
+      ],
+    };
+
+    let simStepTimers = [];
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    const RULE_TO_SCENARIO = {
+      "Container Escape via runc fd Leak":                "escape",
+      "Docker Socket Access from Container":              "sock",
+      "New Privileged Container Created via Socket":      "sock",
+      "Lateral Movement via nsenter":                     "lateral",
+      "Unexpected Internal Network Scan":                 "lateral",
+      "Sensitive File Read in Container":                 "secrets",
+      "Process Environment Dump":                         "secrets",
+      "Docker AuthZ Bypass via Oversized Request":        "authz",
+    };
+
+    function resolveScenario(alert) {
+      if (SIM_NODES[alert.scenario]) return alert.scenario;
+      const rule = alert.rule || "";
+      for (const [prefix, sc] of Object.entries(RULE_TO_SCENARIO)) {
+        if (rule.startsWith(prefix)) return sc;
+      }
+      return null;
+    }
+
+    function updateSimulation(alert) {
+      const scenario = resolveScenario(alert);
+      if (!scenario) return;
+
+      // 1. Pulse attacker node
+      const atkEl = document.getElementById(SIM_NODES[scenario].attacker);
+      if (atkEl) {
+        atkEl.classList.remove("attacker-pulse");
+        void atkEl.getBoundingClientRect();
+        atkEl.classList.add("attacker-pulse");
+      }
+
+      // 2. Animate packet path attacker → Falco
+      const pktEl = document.getElementById("pkt-" + scenario);
+      if (pktEl) {
+        pktEl.style.opacity = "1";
+        pktEl.classList.remove("packet-path");
+        void pktEl.getBoundingClientRect();
+        pktEl.classList.add("packet-path");
+
+        setTimeout(() => {
+          // 3. Flash Falco node
+          const falcoEl = document.getElementById("node-falco");
+          if (falcoEl) {
+            falcoEl.classList.remove("falco-flash");
+            void falcoEl.getBoundingClientRect();
+            falcoEl.classList.add("falco-flash");
+          }
+          // 4. Glow victim node(s)
+          SIM_NODES[scenario].victims.forEach(vid => {
+            const vEl = document.getElementById(vid);
+            if (vEl) {
+              vEl.classList.remove("victim-detected");
+              void vEl.getBoundingClientRect();
+              vEl.classList.add("victim-detected");
+            }
+          });
+          // 5. Show DETECTED badge
+          const badgeEl = document.getElementById("badge-" + scenario);
+          if (badgeEl) {
+            badgeEl.style.opacity = "1";
+            badgeEl.classList.remove("badge-pop");
+            void badgeEl.getBoundingClientRect();
+            badgeEl.classList.add("badge-pop");
+          }
+          // Fade packet path
+          setTimeout(() => { if (pktEl) pktEl.style.opacity = "0"; }, 2200);
+        }, 1100);
+      }
+
+      // 6. Topo status label
+      const topoStatus = document.getElementById("topo-status");
+      if (topoStatus) {
+        topoStatus.textContent = scenario + " — DETECTED";
+        topoStatus.className = "ml-auto text-xs text-red-400 font-mono";
+        setTimeout(() => {
+          topoStatus.textContent = "idle";
+          topoStatus.className = "ml-auto text-xs text-slate-500 font-mono";
+        }, 6000);
+      }
+
+      // 7. Highlight MITRE tactic boxes
+      const tactics = SIM_SCENARIO_TACTICS[scenario] || [];
+      tactics.forEach(tacticKey => {
+        const el = document.getElementById("tactic-" + tacticKey);
+        if (!el) return;
+        el.classList.remove("tactic-active");
+        void el.getBoundingClientRect();
+        el.classList.add("tactic-active");
+        el.style.borderColor = "#6366f1";
+        el.style.background = "#eef2ff";
+      });
+
+      // 8. Add technique chip(s) to tactic boxes
+      const mitreRaw = alert.analysis?.mitre_technique || "";
+      const mitreId  = mitreRaw.split(" ")[0];
+      if (mitreId) {
+        const targetTactics = SIM_TECHNIQUE_TO_TACTICS[mitreId] || [];
+        targetTactics.forEach(tacticKey => {
+          const chipsEl = document.getElementById("chips-" + tacticKey);
+          if (!chipsEl || chipsEl.querySelector(`[data-tid="${mitreId}"]`)) return;
+          const chip = document.createElement("span");
+          chip.dataset.tid = mitreId;
+          chip.className = "inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-200 step-visible";
+          chip.textContent = mitreId;
+          chip.title = mitreRaw;
+          chipsEl.appendChild(chip);
+        });
+      }
+    }
+
+    function startStepTimeline(scenario) {
+      switchTab("simulation");
+      const steps = SIM_STEPS[scenario];
+      if (!steps) return;
+
+      simStepTimers.forEach(t => clearTimeout(t));
+      simStepTimers = [];
+
+      const feed = document.getElementById("forensic-timeline");
+      feed.textContent = "";
+
+      const labelEl = document.getElementById("timeline-scenario-label");
+      if (labelEl) {
+        labelEl.textContent = scenario.toUpperCase();
+        labelEl.classList.remove("hidden");
+      }
+
+      steps.forEach((step, i) => {
+        const isAlert = step.rule.includes("ALERT");
+        const ruleCls = step.rule.includes("CRITICAL") ? "text-red-600" :
+                        step.rule.includes("WARNING")  ? "text-orange-600" :
+                        step.rule.includes("NOTICE")   ? "text-yellow-600" : "text-gray-400";
+        const ruleIcon = isAlert ? '<i class="bi bi-shield-exclamation mr-1"></i>' : '';
+
+        const row = document.createElement("div");
+        row.className = "step-hidden flex gap-3 py-3 border-b border-gray-100 last:border-0";
+
+        const stepNum = document.createElement("div");
+        stepNum.className = "flex flex-col items-center flex-shrink-0";
+        const numCircle = document.createElement("div");
+        numCircle.className = `w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isAlert ? "bg-red-100 border-2 border-red-400 text-red-600" : "bg-indigo-50 border-2 border-indigo-200 text-indigo-600"}`;
+        numCircle.textContent = i + 1;
+        const connector = document.createElement("div");
+        connector.className = "w-px flex-1 bg-gray-200 mt-1";
+        stepNum.append(numCircle);
+        if (i < steps.length - 1) stepNum.append(connector);
+
+        const body = document.createElement("div");
+        body.className = "flex-1 min-w-0 pb-1";
+
+        const cmdEl = document.createElement("div");
+        cmdEl.className = "font-mono text-xs bg-slate-900 text-green-400 rounded-md px-3 py-2 mb-2 overflow-x-auto whitespace-nowrap";
+        cmdEl.textContent = "$ " + step.cmd;
+
+        const syscallEl = document.createElement("div");
+        syscallEl.className = "text-xs text-gray-400 font-mono mb-1";
+        syscallEl.textContent = "→ " + step.syscall;
+
+        const ruleEl = document.createElement("div");
+        ruleEl.className = `text-xs ${ruleCls} font-medium leading-tight`;
+        ruleEl.innerHTML = ruleIcon + escHtml(step.rule);
+
+        body.append(cmdEl, syscallEl, ruleEl);
+        row.append(stepNum, body);
+        feed.appendChild(row);
+
+        const t = setTimeout(() => {
+          row.classList.remove("step-hidden");
+          row.classList.add("step-visible");
+          feed.scrollTop = feed.scrollHeight;
+        }, i * 1200);
+        simStepTimers.push(t);
+      });
+    }
+
+    function resetSimulation() {
+      simStepTimers.forEach(t => clearTimeout(t));
+      simStepTimers = [];
+
+      ["escape","sock","lateral","secrets","authz"].forEach(sc => {
+        const pkt = document.getElementById("pkt-" + sc);
+        if (pkt) { pkt.classList.remove("packet-path"); pkt.style.opacity = "0"; }
+        const badge = document.getElementById("badge-" + sc);
+        if (badge) { badge.style.opacity = "0"; badge.classList.remove("badge-pop"); }
+        const atk = SIM_NODES[sc]?.attacker;
+        if (atk) document.getElementById(atk)?.classList.remove("attacker-pulse");
+        (SIM_NODES[sc]?.victims || []).forEach(vid => document.getElementById(vid)?.classList.remove("victim-detected"));
+      });
+
+      const falco = document.getElementById("node-falco");
+      if (falco) falco.classList.remove("falco-flash");
+
+      ["execution","privilege-escalation","defense-evasion","credential-access","discovery","lateral-movement"].forEach(t => {
+        const el = document.getElementById("tactic-" + t);
+        if (el) { el.classList.remove("tactic-active"); el.style.borderColor = ""; el.style.background = ""; }
+        const chips = document.getElementById("chips-" + t);
+        if (chips) chips.textContent = "";
+      });
+
+      const feed = document.getElementById("forensic-timeline");
+      if (feed) {
+        feed.innerHTML = '<div id="timeline-empty" class="py-10 text-center"><i class="bi bi-terminal text-3xl text-gray-200"></i><p class="text-xs text-gray-400 mt-2">Run an attack to watch the forensic step-by-step replay.</p></div>';
+      }
+
+      const topoStatus = document.getElementById("topo-status");
+      if (topoStatus) { topoStatus.textContent = "idle"; topoStatus.className = "ml-auto text-xs text-slate-500 font-mono"; }
+      const labelEl = document.getElementById("timeline-scenario-label");
+      if (labelEl) labelEl.classList.add("hidden");
     }
 
     // ── Boot ──────────────────────────────────────────────────────────────────
