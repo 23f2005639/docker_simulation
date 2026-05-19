@@ -41,6 +41,15 @@
     .step-hidden     { opacity: 0; }
     .victim-detected { animation: detectedGlow 0.5s ease-in-out 4; }
     .topo-box        { transition: filter 0.3s; }
+    .panel-fullscreen {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 200;
+      border-radius: 0 !important;
+      margin: 0 !important;
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-sm font-sans text-gray-800" style="overflow:hidden;height:100vh;display:flex;flex-direction:column">
@@ -110,7 +119,7 @@
   <div class="grid grid-cols-2 gap-2.5 p-2.5 flex-1 min-h-0">
 
     <!-- ════ AI Analysis ════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+    <div class="grid-panel bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
       <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0 flex-wrap">
         <i class="bi bi-graph-up text-indigo-400 text-xs"></i>
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Analysis</span>
@@ -122,6 +131,7 @@
         <button class="filter-chip text-xs px-2 py-0.5 rounded-full border border-yellow-200 bg-yellow-50 text-yellow-700" data-sev="MEDIUM" onclick="applyFilter('MEDIUM')">MED <span id="fc-medium" class="font-mono">0</span></button>
         <button class="filter-chip text-xs px-2 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700" data-sev="LOW" onclick="applyFilter('LOW')">LOW <span id="fc-low" class="font-mono">0</span></button>
         <div id="mitre-panel" class="hidden"></div>
+        <button onclick="toggleFullscreen(this)" class="ml-auto flex-shrink-0 text-gray-300 hover:text-indigo-500 transition-colors p-0.5" title="Toggle fullscreen"><i class="bi bi-fullscreen text-xs"></i></button>
       </div>
       <div id="analysis-feed" class="flex-1 overflow-y-auto min-h-0">
         <div id="analysis-empty" class="py-12 text-center">
@@ -133,12 +143,13 @@
     </div>
 
     <!-- ════ Attack Simulation ════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+    <div class="grid-panel bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
       <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
         <i class="bi bi-diagram-3-fill text-indigo-400 text-xs"></i>
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack Simulation</span>
         <span id="timeline-scenario-label" class="ml-1 hidden text-xs font-mono bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full"></span>
-        <span id="topo-status" class="ml-auto text-xs text-slate-400 font-mono">idle</span>
+        <span id="topo-status" class="ml-2 text-xs text-slate-400 font-mono">idle</span>
+        <button onclick="toggleFullscreen(this)" class="ml-auto flex-shrink-0 text-gray-300 hover:text-indigo-500 transition-colors p-0.5" title="Toggle fullscreen"><i class="bi bi-fullscreen text-xs"></i></button>
       </div>
       <div class="flex-1 flex overflow-hidden min-h-0">
         <!-- SVG Topology (left, dark) -->
@@ -291,12 +302,13 @@
     </div>
 
     <!-- ════ Falco Logs ════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+    <div class="grid-panel bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
       <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
         <i class="bi bi-file-earmark-text text-indigo-400 text-xs"></i>
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Falco Logs</span>
         <span id="falco-badge" class="bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
         <span class="ml-auto text-xs text-gray-300 font-mono">raw eBPF syscall events</span>
+        <button onclick="toggleFullscreen(this)" class="flex-shrink-0 text-gray-300 hover:text-indigo-500 transition-colors p-0.5" title="Toggle fullscreen"><i class="bi bi-fullscreen text-xs"></i></button>
       </div>
       <div id="falco-feed" class="flex-1 overflow-y-auto min-h-0">
         <div id="falco-empty" class="py-12 text-center">
@@ -308,12 +320,13 @@
     </div>
 
     <!-- ════ Attack History ════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+    <div class="grid-panel bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
       <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
         <i class="bi bi-clock-history text-indigo-400 text-xs"></i>
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack History</span>
         <span id="attacks-badge" class="bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
         <span class="ml-auto text-xs text-gray-300 font-mono">trigger log</span>
+        <button onclick="toggleFullscreen(this)" class="flex-shrink-0 text-gray-300 hover:text-indigo-500 transition-colors p-0.5" title="Toggle fullscreen"><i class="bi bi-fullscreen text-xs"></i></button>
       </div>
       <div id="attacks-feed" class="flex-1 overflow-y-auto min-h-0">
         <div id="attacks-empty" class="py-12 text-center">
@@ -1397,6 +1410,15 @@
       if (topoStatus) { topoStatus.textContent = "idle"; topoStatus.className = "ml-auto text-xs text-slate-500 font-mono"; }
       const labelEl = document.getElementById("timeline-scenario-label");
       if (labelEl) labelEl.classList.add("hidden");
+    }
+
+    // ── Panel fullscreen toggle ───────────────────────────────────────────────
+    function toggleFullscreen(btn) {
+      const panel = btn.closest(".grid-panel");
+      const icon  = btn.querySelector("i");
+      const isNowFull = panel.classList.toggle("panel-fullscreen");
+      icon.className = isNowFull ? "bi bi-fullscreen-exit text-xs" : "bi bi-fullscreen text-xs";
+      btn.title      = isNowFull ? "Exit fullscreen" : "Toggle fullscreen";
     }
 
     // ── Boot ──────────────────────────────────────────────────────────────────
