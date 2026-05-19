@@ -43,7 +43,7 @@
     .topo-box        { transition: filter 0.3s; }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-sm font-sans text-gray-800">
+<body class="bg-slate-100 text-sm font-sans text-gray-800" style="overflow:hidden;height:100vh;display:flex;flex-direction:column">
 
   <!-- ── Header ─────────────────────────────────────────────────── -->
   <header class="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
@@ -92,331 +92,238 @@
     </div>
   </div>
 
-  <!-- ── Main layout ────────────────────────────────────────────── -->
-  <div class="max-w-screen-2xl mx-auto px-6 py-5 flex gap-5 items-start">
-
-    <!-- ── Left sidebar ──────────────────────────────────────────── -->
-    <aside class="w-64 flex-shrink-0 space-y-4">
-
-      <!-- Attack Scenarios -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-          <i class="bi bi-lightning-charge text-gray-400 text-xs"></i>
-          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack Scenarios</span>
-        </div>
-        <div class="divide-y divide-gray-100" id="attack-list"></div>
-      </div>
-
-      <!-- System Health -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-          <i class="bi bi-heart-pulse text-gray-400 text-xs"></i>
-          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">System Health</span>
-        </div>
-        <div class="p-3 space-y-2" id="health-list">
-          <p class="text-xs text-gray-400">Checking…</p>
+  <!-- ── Scenarios + Health strip ─────────────────────────────────── -->
+  <div class="bg-white border-b border-gray-200 flex-shrink-0">
+    <div class="px-4 py-2 flex items-center gap-2">
+      <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Scenarios</span>
+      <div id="attack-list" class="flex items-center gap-2 flex-1 overflow-x-auto py-0.5"></div>
+      <div class="border-l border-gray-200 pl-3 flex items-center gap-2 flex-shrink-0">
+        <i class="bi bi-heart-pulse text-gray-300 text-xs"></i>
+        <div id="health-list" class="flex items-center gap-3">
+          <span class="text-xs text-gray-300">Checking…</span>
         </div>
       </div>
+    </div>
+  </div>
 
-      <!-- ATT&CK Coverage -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-          <i class="bi bi-diagram-3 text-gray-400 text-xs"></i>
-          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">ATT&amp;CK Coverage</span>
-        </div>
-        <div class="p-3" id="mitre-panel">
-          <p class="text-xs text-gray-400">No techniques detected yet.</p>
+  <!-- ── 4-Panel Grid ───────────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 gap-2.5 p-2.5 flex-1 min-h-0">
+
+    <!-- ════ AI Analysis ════ -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+      <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0 flex-wrap">
+        <i class="bi bi-graph-up text-indigo-400 text-xs"></i>
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Analysis</span>
+        <span id="alert-badge" class="bg-indigo-100 text-indigo-700 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        <span class="text-gray-200">|</span>
+        <button class="filter-chip active text-xs px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-600" data-sev="all" onclick="applyFilter('all')">All</button>
+        <button class="filter-chip text-xs px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700" data-sev="CRITICAL" onclick="applyFilter('CRITICAL')">CRIT <span id="fc-critical" class="font-mono">0</span></button>
+        <button class="filter-chip text-xs px-2 py-0.5 rounded-full border border-orange-200 bg-orange-50 text-orange-700" data-sev="HIGH" onclick="applyFilter('HIGH')">HIGH <span id="fc-high" class="font-mono">0</span></button>
+        <button class="filter-chip text-xs px-2 py-0.5 rounded-full border border-yellow-200 bg-yellow-50 text-yellow-700" data-sev="MEDIUM" onclick="applyFilter('MEDIUM')">MED <span id="fc-medium" class="font-mono">0</span></button>
+        <button class="filter-chip text-xs px-2 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700" data-sev="LOW" onclick="applyFilter('LOW')">LOW <span id="fc-low" class="font-mono">0</span></button>
+        <div id="mitre-panel" class="hidden"></div>
+      </div>
+      <div id="analysis-feed" class="flex-1 overflow-y-auto min-h-0">
+        <div id="analysis-empty" class="py-12 text-center">
+          <i class="bi bi-radar text-3xl text-gray-200"></i>
+          <p class="text-sm text-gray-400 mt-3">No alerts yet.</p>
+          <p class="text-xs text-gray-300 mt-1">Trigger an attack to see AI-powered threat analysis.</p>
         </div>
       </div>
+    </div>
 
-    </aside>
-
-    <!-- ── Main panel ─────────────────────────────────────────────── -->
-    <main class="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-
-      <!-- Tab bar -->
-      <div class="flex items-center border-b border-gray-200 px-4 gap-1">
-        <button class="tab-btn active flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="analysis" onclick="switchTab('analysis')">
-          <i class="bi bi-graph-up"></i> AI Analysis
-          <span id="alert-badge" class="ml-1 bg-indigo-100 text-indigo-700 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
-        </button>
-        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="falco" onclick="switchTab('falco')">
-          <i class="bi bi-file-earmark-text"></i> Falco Logs
-          <span id="falco-badge" class="ml-1 bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
-        </button>
-        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="attacks" onclick="switchTab('attacks')">
-          <i class="bi bi-clock-history"></i> Attack History
-          <span id="attacks-badge" class="ml-1 bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
-        </button>
-        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="research" onclick="switchTab('research')">
-          <i class="bi bi-clipboard2-data"></i> Research Summary
-        </button>
-        <button class="tab-btn flex items-center gap-1.5 px-3 py-3 text-xs text-gray-500 hover:text-indigo-600" data-tab="simulation" onclick="switchTab('simulation')">
-          <i class="bi bi-diagram-3-fill"></i> Attack Simulation
-        </button>
-        <div class="ml-auto flex items-center gap-1.5 text-xs text-gray-400 py-3">
-          <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" id="live-dot"></span>
-          Live
-        </div>
+    <!-- ════ Attack Simulation ════ -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+      <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
+        <i class="bi bi-diagram-3-fill text-indigo-400 text-xs"></i>
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack Simulation</span>
+        <span id="timeline-scenario-label" class="ml-1 hidden text-xs font-mono bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full"></span>
+        <span id="topo-status" class="ml-auto text-xs text-slate-400 font-mono">idle</span>
       </div>
-
-      <!-- Tab: AI Analysis -->
-      <div id="tab-analysis" class="tab-panel active" style="max-height: calc(100vh - 200px); overflow-y: auto; display: flex; flex-direction: column;">
-        <!-- Severity filter chips -->
-        <div class="px-5 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap bg-slate-50 sticky top-0 z-10">
-          <span class="text-xs text-gray-400 mr-1">Filter:</span>
-          <button class="filter-chip active text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-white text-gray-600" data-sev="all" onclick="applyFilter('all')">All</button>
-          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-red-200 bg-red-50 text-red-700" data-sev="CRITICAL" onclick="applyFilter('CRITICAL')">CRITICAL <span id="fc-critical" class="font-mono">0</span></button>
-          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-orange-200 bg-orange-50 text-orange-700" data-sev="HIGH" onclick="applyFilter('HIGH')">HIGH <span id="fc-high" class="font-mono">0</span></button>
-          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-yellow-200 bg-yellow-50 text-yellow-700" data-sev="MEDIUM" onclick="applyFilter('MEDIUM')">MEDIUM <span id="fc-medium" class="font-mono">0</span></button>
-          <button class="filter-chip text-xs px-2.5 py-1 rounded-full border border-green-200 bg-green-50 text-green-700" data-sev="LOW" onclick="applyFilter('LOW')">LOW <span id="fc-low" class="font-mono">0</span></button>
+      <div class="flex-1 flex overflow-hidden min-h-0">
+        <!-- SVG Topology (left, dark) -->
+        <div class="bg-slate-900 flex-shrink-0 overflow-hidden" style="width:43%">
+          <svg id="topo-svg" viewBox="0 0 900 540" class="w-full h-full">
+            <defs>
+              <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+              </pattern>
+              <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="3" refY="2" orient="auto">
+                <polygon points="0 0, 6 2, 0 4" fill="#ef4444"/>
+              </marker>
+            </defs>
+            <rect width="900" height="540" fill="url(#grid)"/>
+            <line x1="450" y1="87" x2="450" y2="235" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+            <line x1="740" y1="172" x2="475" y2="254" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+            <line x1="685" y1="420" x2="470" y2="278" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+            <line x1="215" y1="420" x2="430" y2="278" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+            <line x1="160" y1="172" x2="425" y2="254" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
+            <!-- escape-net -->
+            <rect class="topo-box" x="360" y="20" width="180" height="84" rx="9" fill="#0f172a" stroke="#dc2626" stroke-width="1.5"/>
+            <text x="450" y="36" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">escape-net</text>
+            <text x="450" y="49" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.1.0/24</text>
+            <circle id="node-escape-attacker" cx="405" cy="75" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+            <text x="405" y="79" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+            <circle id="node-escape-victim" cx="492" cy="75" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+            <text x="492" y="79" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+            <line x1="419" y1="75" x2="479" y2="75" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+            <!-- sock-net -->
+            <rect class="topo-box" x="660" y="125" width="170" height="84" rx="9" fill="#0f172a" stroke="#ea580c" stroke-width="1.5"/>
+            <text x="745" y="141" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">sock-net</text>
+            <text x="745" y="154" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.2.0/24</text>
+            <circle id="node-sock-attacker" cx="698" cy="182" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+            <text x="698" y="186" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+            <circle id="node-sock-victim" cx="778" cy="182" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+            <text x="778" y="186" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+            <line x1="712" y1="182" x2="765" y2="182" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+            <!-- authz-net -->
+            <rect class="topo-box" x="610" y="385" width="170" height="84" rx="9" fill="#0f172a" stroke="#d97706" stroke-width="1.5"/>
+            <text x="695" y="401" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">authz-net</text>
+            <text x="695" y="414" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.5.0/24</text>
+            <circle id="node-authz-attacker" cx="645" cy="442" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+            <text x="645" y="446" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+            <circle id="node-authz-victim" cx="725" cy="442" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+            <text x="725" y="446" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+            <line x1="659" y1="442" x2="712" y2="442" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+            <!-- secrets-net -->
+            <rect class="topo-box" x="120" y="385" width="180" height="84" rx="9" fill="#0f172a" stroke="#7c3aed" stroke-width="1.5"/>
+            <text x="210" y="401" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">secrets-net</text>
+            <text x="210" y="414" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.4.0/24</text>
+            <circle id="node-secrets-attacker" cx="155" cy="442" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+            <text x="155" y="446" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+            <circle id="node-secrets-victim" cx="248" cy="442" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+            <text x="248" y="446" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
+            <line x1="169" y1="442" x2="235" y2="442" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+            <!-- lateral-net -->
+            <rect class="topo-box" x="58" y="110" width="192" height="110" rx="9" fill="#0f172a" stroke="#ca8a04" stroke-width="1.5"/>
+            <text x="154" y="127" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">lateral-net</text>
+            <text x="154" y="140" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.3.0/24</text>
+            <circle id="node-lateral-attacker" cx="88" cy="180" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
+            <text x="88" y="184" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
+            <circle id="node-lateral-victim-a" cx="164" cy="160" r="12" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+            <text x="164" y="164" text-anchor="middle" fill="#93c5fd" font-size="6.5" font-family="monospace">VIC-A</text>
+            <circle id="node-lateral-victim-b" cx="215" cy="195" r="12" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
+            <text x="215" y="199" text-anchor="middle" fill="#93c5fd" font-size="6.5" font-family="monospace">VIC-B</text>
+            <line x1="102" y1="180" x2="152" y2="165" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+            <line x1="102" y1="185" x2="203" y2="195" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
+            <!-- Falco center -->
+            <circle cx="450" cy="266" r="35" fill="#1e1b4b" stroke="#4f46e5" stroke-width="2.5" opacity="0.3"/>
+            <circle id="node-falco" cx="450" cy="266" r="26" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+            <text x="450" y="261" text-anchor="middle" fill="#a5b4fc" font-size="9" font-family="monospace" font-weight="bold">FALCO</text>
+            <text x="450" y="274" text-anchor="middle" fill="#6366f1" font-size="7.5" font-family="monospace">eBPF monitor</text>
+            <text x="450" y="311" text-anchor="middle" fill="#334155" font-size="7.5" font-family="monospace">monitoring-net 172.20.6.0/24</text>
+            <!-- Packet paths -->
+            <path id="pkt-escape"  d="M405,61  Q428,148 450,240" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+            <path id="pkt-sock"    d="M698,168 Q588,204 475,256" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+            <path id="pkt-authz"   d="M645,428 Q558,356 467,280" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+            <path id="pkt-secrets" d="M155,428 Q304,354 432,280" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+            <path id="pkt-lateral" d="M88,166  Q272,204 424,257" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+            <!-- Detection badges -->
+            <g id="badge-escape" opacity="0"><rect x="398" y="11" width="62" height="16" rx="5" fill="#dc2626"/><text x="429" y="22.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text></g>
+            <g id="badge-sock" opacity="0"><rect x="704" y="116" width="62" height="16" rx="5" fill="#dc2626"/><text x="735" y="127.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text></g>
+            <g id="badge-authz" opacity="0"><rect x="648" y="376" width="62" height="16" rx="5" fill="#dc2626"/><text x="679" y="387.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text></g>
+            <g id="badge-secrets" opacity="0"><rect x="152" y="376" width="62" height="16" rx="5" fill="#7c3aed"/><text x="183" y="387.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text></g>
+            <g id="badge-lateral" opacity="0"><rect x="56" y="100" width="62" height="16" rx="5" fill="#dc2626"/><text x="87" y="111.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text></g>
+          </svg>
         </div>
-        <div id="analysis-feed" class="flex-1">
-          <div id="analysis-empty" class="py-16 text-center">
-            <i class="bi bi-radar text-4xl text-gray-200"></i>
-            <p class="text-sm text-gray-400 mt-3">No alerts yet.</p>
-            <p class="text-xs text-gray-300 mt-1">Trigger an attack scenario to see AI-powered threat analysis here.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Falco Logs -->
-      <div id="tab-falco" class="tab-panel" style="max-height: calc(100vh - 200px); overflow-y: auto;">
-        <div id="falco-feed">
-          <div id="falco-empty" class="py-16 text-center">
-            <i class="bi bi-journal-text text-4xl text-gray-200"></i>
-            <p class="text-sm text-gray-400 mt-3">No Falco events received yet.</p>
-            <p class="text-xs text-gray-300 mt-1">Raw Falco alert JSON will appear here as events are detected.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Attack History -->
-      <div id="tab-attacks" class="tab-panel" style="max-height: calc(100vh - 200px); overflow-y: auto;">
-        <div id="attacks-feed">
-          <div id="attacks-empty" class="py-16 text-center">
-            <i class="bi bi-clock-history text-4xl text-gray-200"></i>
-            <p class="text-sm text-gray-400 mt-3">No attacks triggered yet.</p>
-            <p class="text-xs text-gray-300 mt-1">Each time you trigger an attack, it will be logged here with a timestamp.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Research Summary -->
-      <div id="tab-research" class="tab-panel bg-slate-50/60" style="max-height: calc(100vh - 200px); overflow-y: auto;">
-        <div id="research-content" class="p-6 space-y-6">
-          <div class="py-16 text-center">
-            <i class="bi bi-clipboard2-data text-4xl text-gray-200"></i>
-            <p class="text-sm text-gray-400 mt-3">Switch to this tab after running attacks to see your research summary.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Attack Simulation -->
-      <div id="tab-simulation" class="tab-panel" style="max-height: calc(100vh - 200px); overflow-y: auto;">
-        <div class="p-4 flex gap-4" style="min-height: 520px;">
-
-          <!-- Panel A: Container Network Topology SVG (40%) -->
-          <div class="flex-shrink-0 bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col" style="width:42%">
-            <div class="px-4 py-2.5 border-b border-slate-700 flex items-center gap-2">
-              <i class="bi bi-hdd-network text-indigo-400 text-xs"></i>
-              <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Container Network Topology</span>
-              <span id="topo-status" class="ml-auto text-xs text-slate-500 font-mono">idle</span>
+        <!-- MITRE tactics + forensic timeline (right) -->
+        <div class="flex-1 flex flex-col overflow-hidden min-h-0">
+          <!-- MITRE tactic grid (compact 2×3) -->
+          <div class="p-2 grid grid-cols-3 gap-1.5 border-b border-gray-100 flex-shrink-0">
+            <div id="tactic-execution" class="tactic-box rounded-md border border-gray-200 p-1.5">
+              <div class="flex items-center gap-1 mb-1">
+                <i class="bi bi-play-circle text-gray-300 text-xs"></i>
+                <span class="text-xs font-bold text-gray-600 leading-tight">Execution</span>
+                <span class="text-xs text-gray-300 font-mono ml-auto">TA0002</span>
+              </div>
+              <div id="chips-execution" class="flex flex-wrap gap-0.5 min-h-3"></div>
             </div>
-            <div class="flex-1 p-2 overflow-hidden">
-              <svg id="topo-svg" viewBox="0 0 900 540" class="w-full h-full" style="min-height:340px">
-                <defs>
-                  <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-                    <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e293b" stroke-width="0.5"/>
-                  </pattern>
-                  <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="3" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="#ef4444"/>
-                  </marker>
-                </defs>
-                <rect width="900" height="540" fill="url(#grid)"/>
-
-                <!-- Monitoring lines (dashed gray) from each cluster center to Falco -->
-                <line x1="450" y1="87" x2="450" y2="235" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
-                <line x1="740" y1="172" x2="475" y2="254" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
-                <line x1="685" y1="420" x2="470" y2="278" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
-                <line x1="215" y1="420" x2="430" y2="278" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
-                <line x1="160" y1="172" x2="425" y2="254" stroke="#334155" stroke-width="1" stroke-dasharray="5,4"/>
-
-                <!-- ── escape-net cluster (top center) ── -->
-                <rect class="topo-box" x="360" y="20" width="180" height="84" rx="9" fill="#0f172a" stroke="#dc2626" stroke-width="1.5"/>
-                <text x="450" y="36" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">escape-net</text>
-                <text x="450" y="49" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.1.0/24</text>
-                <circle id="node-escape-attacker" cx="405" cy="75" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
-                <text x="405" y="79" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
-                <circle id="node-escape-victim" cx="492" cy="75" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
-                <text x="492" y="79" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
-                <line x1="419" y1="75" x2="479" y2="75" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
-
-                <!-- ── sock-net cluster (top right) ── -->
-                <rect class="topo-box" x="660" y="125" width="170" height="84" rx="9" fill="#0f172a" stroke="#ea580c" stroke-width="1.5"/>
-                <text x="745" y="141" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">sock-net</text>
-                <text x="745" y="154" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.2.0/24</text>
-                <circle id="node-sock-attacker" cx="698" cy="182" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
-                <text x="698" y="186" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
-                <circle id="node-sock-victim" cx="778" cy="182" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
-                <text x="778" y="186" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
-                <line x1="712" y1="182" x2="765" y2="182" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
-
-                <!-- ── authz-net cluster (bottom right) ── -->
-                <rect class="topo-box" x="610" y="385" width="170" height="84" rx="9" fill="#0f172a" stroke="#d97706" stroke-width="1.5"/>
-                <text x="695" y="401" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">authz-net</text>
-                <text x="695" y="414" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.5.0/24</text>
-                <circle id="node-authz-attacker" cx="645" cy="442" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
-                <text x="645" y="446" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
-                <circle id="node-authz-victim" cx="725" cy="442" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
-                <text x="725" y="446" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
-                <line x1="659" y1="442" x2="712" y2="442" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
-
-                <!-- ── secrets-net cluster (bottom left) ── -->
-                <rect class="topo-box" x="120" y="385" width="180" height="84" rx="9" fill="#0f172a" stroke="#7c3aed" stroke-width="1.5"/>
-                <text x="210" y="401" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">secrets-net</text>
-                <text x="210" y="414" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.4.0/24</text>
-                <circle id="node-secrets-attacker" cx="155" cy="442" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
-                <text x="155" y="446" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
-                <circle id="node-secrets-victim" cx="248" cy="442" r="13" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
-                <text x="248" y="446" text-anchor="middle" fill="#93c5fd" font-size="7.5" font-family="monospace">VIC</text>
-                <line x1="169" y1="442" x2="235" y2="442" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
-
-                <!-- ── lateral-net cluster (top left) ── -->
-                <rect class="topo-box" x="58" y="110" width="192" height="110" rx="9" fill="#0f172a" stroke="#ca8a04" stroke-width="1.5"/>
-                <text x="154" y="127" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="bold">lateral-net</text>
-                <text x="154" y="140" text-anchor="middle" fill="#475569" font-size="8.5" font-family="monospace">172.20.3.0/24</text>
-                <circle id="node-lateral-attacker" cx="88" cy="180" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="1.8"/>
-                <text x="88" y="184" text-anchor="middle" fill="#fca5a5" font-size="7.5" font-family="monospace" font-weight="bold">ATK</text>
-                <circle id="node-lateral-victim-a" cx="164" cy="160" r="12" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
-                <text x="164" y="164" text-anchor="middle" fill="#93c5fd" font-size="6.5" font-family="monospace">VIC-A</text>
-                <circle id="node-lateral-victim-b" cx="215" cy="195" r="12" fill="#0c1a2e" stroke="#3b82f6" stroke-width="1.8"/>
-                <text x="215" y="199" text-anchor="middle" fill="#93c5fd" font-size="6.5" font-family="monospace">VIC-B</text>
-                <line x1="102" y1="180" x2="152" y2="165" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
-                <line x1="102" y1="185" x2="203" y2="195" stroke="#334155" stroke-width="1" stroke-dasharray="3,2"/>
-
-                <!-- ── Falco center node ── -->
-                <circle cx="450" cy="266" r="35" fill="#1e1b4b" stroke="#4f46e5" stroke-width="2.5" opacity="0.3"/>
-                <circle id="node-falco" cx="450" cy="266" r="26" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
-                <text x="450" y="261" text-anchor="middle" fill="#a5b4fc" font-size="9" font-family="monospace" font-weight="bold">FALCO</text>
-                <text x="450" y="274" text-anchor="middle" fill="#6366f1" font-size="7.5" font-family="monospace">eBPF monitor</text>
-                <text x="450" y="311" text-anchor="middle" fill="#334155" font-size="7.5" font-family="monospace">monitoring-net 172.20.6.0/24</text>
-
-                <!-- ── Animated packet paths (initially hidden, revealed by JS) ── -->
-                <path id="pkt-escape"  d="M405,61  Q428,148 450,240" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
-                <path id="pkt-sock"    d="M698,168 Q588,204 475,256" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
-                <path id="pkt-authz"   d="M645,428 Q558,356 467,280" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
-                <path id="pkt-secrets" d="M155,428 Q304,354 432,280" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
-                <path id="pkt-lateral" d="M88,166  Q272,204 424,257" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0" stroke-linecap="round" marker-end="url(#arrowhead)"/>
-
-                <!-- ── Detection badges (initially hidden) ── -->
-                <g id="badge-escape" opacity="0">
-                  <rect x="398" y="11" width="62" height="16" rx="5" fill="#dc2626"/>
-                  <text x="429" y="22.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
-                </g>
-                <g id="badge-sock" opacity="0">
-                  <rect x="704" y="116" width="62" height="16" rx="5" fill="#dc2626"/>
-                  <text x="735" y="127.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
-                </g>
-                <g id="badge-authz" opacity="0">
-                  <rect x="648" y="376" width="62" height="16" rx="5" fill="#dc2626"/>
-                  <text x="679" y="387.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
-                </g>
-                <g id="badge-secrets" opacity="0">
-                  <rect x="152" y="376" width="62" height="16" rx="5" fill="#7c3aed"/>
-                  <text x="183" y="387.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
-                </g>
-                <g id="badge-lateral" opacity="0">
-                  <rect x="56" y="100" width="62" height="16" rx="5" fill="#dc2626"/>
-                  <text x="87" y="111.5" text-anchor="middle" fill="white" font-size="8" font-family="monospace" font-weight="bold">DETECTED</text>
-                </g>
-              </svg>
+            <div id="tactic-privilege-escalation" class="tactic-box rounded-md border border-gray-200 p-1.5">
+              <div class="flex items-center gap-1 mb-1">
+                <i class="bi bi-arrow-up-circle text-gray-300 text-xs"></i>
+                <span class="text-xs font-bold text-gray-600 leading-tight">Priv. Escalation</span>
+                <span class="text-xs text-gray-300 font-mono ml-auto">TA0004</span>
+              </div>
+              <div id="chips-privilege-escalation" class="flex flex-wrap gap-0.5 min-h-3"></div>
+            </div>
+            <div id="tactic-defense-evasion" class="tactic-box rounded-md border border-gray-200 p-1.5">
+              <div class="flex items-center gap-1 mb-1">
+                <i class="bi bi-shield-slash text-gray-300 text-xs"></i>
+                <span class="text-xs font-bold text-gray-600 leading-tight">Defense Evasion</span>
+                <span class="text-xs text-gray-300 font-mono ml-auto">TA0005</span>
+              </div>
+              <div id="chips-defense-evasion" class="flex flex-wrap gap-0.5 min-h-3"></div>
+            </div>
+            <div id="tactic-credential-access" class="tactic-box rounded-md border border-gray-200 p-1.5">
+              <div class="flex items-center gap-1 mb-1">
+                <i class="bi bi-key text-gray-300 text-xs"></i>
+                <span class="text-xs font-bold text-gray-600 leading-tight">Credential Access</span>
+                <span class="text-xs text-gray-300 font-mono ml-auto">TA0006</span>
+              </div>
+              <div id="chips-credential-access" class="flex flex-wrap gap-0.5 min-h-3"></div>
+            </div>
+            <div id="tactic-discovery" class="tactic-box rounded-md border border-gray-200 p-1.5">
+              <div class="flex items-center gap-1 mb-1">
+                <i class="bi bi-binoculars text-gray-300 text-xs"></i>
+                <span class="text-xs font-bold text-gray-600 leading-tight">Discovery</span>
+                <span class="text-xs text-gray-300 font-mono ml-auto">TA0007</span>
+              </div>
+              <div id="chips-discovery" class="flex flex-wrap gap-0.5 min-h-3"></div>
+            </div>
+            <div id="tactic-lateral-movement" class="tactic-box rounded-md border border-gray-200 p-1.5">
+              <div class="flex items-center gap-1 mb-1">
+                <i class="bi bi-arrow-left-right text-gray-300 text-xs"></i>
+                <span class="text-xs font-bold text-gray-600 leading-tight">Lateral Movement</span>
+                <span class="text-xs text-gray-300 font-mono ml-auto">TA0008</span>
+              </div>
+              <div id="chips-lateral-movement" class="flex flex-wrap gap-0.5 min-h-3"></div>
             </div>
           </div>
-
-          <!-- Panels B + C: right column (58%) -->
-          <div class="flex-1 flex flex-col gap-3 min-w-0">
-
-            <!-- Panel B: MITRE ATT&CK Tactic Progression -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-                <i class="bi bi-map text-indigo-400 text-xs"></i>
-                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">MITRE ATT&amp;CK Tactic Progression</span>
-                <span class="ml-auto text-xs text-gray-300">Highlights on detection</span>
-              </div>
-              <div class="p-3 grid grid-cols-3 gap-2">
-                <div id="tactic-execution" class="tactic-box rounded-lg border border-gray-200 p-2.5">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="bi bi-play-circle text-gray-300 text-xs"></i>
-                    <span class="text-xs font-bold text-gray-600">Execution</span>
-                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0002</span>
-                  </div>
-                  <div id="chips-execution" class="flex flex-wrap gap-1 min-h-4"></div>
-                </div>
-                <div id="tactic-privilege-escalation" class="tactic-box rounded-lg border border-gray-200 p-2.5">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="bi bi-arrow-up-circle text-gray-300 text-xs"></i>
-                    <span class="text-xs font-bold text-gray-600">Privilege Escalation</span>
-                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0004</span>
-                  </div>
-                  <div id="chips-privilege-escalation" class="flex flex-wrap gap-1 min-h-4"></div>
-                </div>
-                <div id="tactic-defense-evasion" class="tactic-box rounded-lg border border-gray-200 p-2.5">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="bi bi-shield-slash text-gray-300 text-xs"></i>
-                    <span class="text-xs font-bold text-gray-600">Defense Evasion</span>
-                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0005</span>
-                  </div>
-                  <div id="chips-defense-evasion" class="flex flex-wrap gap-1 min-h-4"></div>
-                </div>
-                <div id="tactic-credential-access" class="tactic-box rounded-lg border border-gray-200 p-2.5">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="bi bi-key text-gray-300 text-xs"></i>
-                    <span class="text-xs font-bold text-gray-600">Credential Access</span>
-                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0006</span>
-                  </div>
-                  <div id="chips-credential-access" class="flex flex-wrap gap-1 min-h-4"></div>
-                </div>
-                <div id="tactic-discovery" class="tactic-box rounded-lg border border-gray-200 p-2.5">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="bi bi-binoculars text-gray-300 text-xs"></i>
-                    <span class="text-xs font-bold text-gray-600">Discovery</span>
-                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0007</span>
-                  </div>
-                  <div id="chips-discovery" class="flex flex-wrap gap-1 min-h-4"></div>
-                </div>
-                <div id="tactic-lateral-movement" class="tactic-box rounded-lg border border-gray-200 p-2.5">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="bi bi-arrow-left-right text-gray-300 text-xs"></i>
-                    <span class="text-xs font-bold text-gray-600">Lateral Movement</span>
-                    <span class="text-xs text-gray-300 font-mono ml-auto">TA0008</span>
-                  </div>
-                  <div id="chips-lateral-movement" class="flex flex-wrap gap-1 min-h-4"></div>
-                </div>
-              </div>
+          <!-- Forensic timeline (scrollable) -->
+          <div id="forensic-timeline" class="flex-1 overflow-y-auto p-2 min-h-0">
+            <div id="timeline-empty" class="py-6 text-center">
+              <i class="bi bi-terminal text-2xl text-gray-200"></i>
+              <p class="text-xs text-gray-400 mt-1">Run an attack to see forensic step-by-step replay.</p>
             </div>
-
-            <!-- Panel C: Forensic Attack Step Timeline -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex-1">
-              <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-                <i class="bi bi-terminal text-indigo-400 text-xs"></i>
-                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Forensic Attack Timeline</span>
-                <span id="timeline-scenario-label" class="ml-2 hidden text-xs font-mono bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full"></span>
-                <span class="ml-auto text-xs text-gray-300">step-by-step syscall replay</span>
-              </div>
-              <div id="forensic-timeline" class="p-3 space-y-0 overflow-y-auto" style="max-height: 300px;">
-                <div id="timeline-empty" class="py-10 text-center">
-                  <i class="bi bi-terminal text-3xl text-gray-200"></i>
-                  <p class="text-xs text-gray-400 mt-2">Run an attack to watch the forensic step-by-step replay.</p>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
       </div>
+    </div>
 
-    </main>
+    <!-- ════ Falco Logs ════ -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+      <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
+        <i class="bi bi-file-earmark-text text-indigo-400 text-xs"></i>
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Falco Logs</span>
+        <span id="falco-badge" class="bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        <span class="ml-auto text-xs text-gray-300 font-mono">raw eBPF syscall events</span>
+      </div>
+      <div id="falco-feed" class="flex-1 overflow-y-auto min-h-0">
+        <div id="falco-empty" class="py-12 text-center">
+          <i class="bi bi-journal-text text-3xl text-gray-200"></i>
+          <p class="text-sm text-gray-400 mt-3">No Falco events yet.</p>
+          <p class="text-xs text-gray-300 mt-1">Raw Falco alert JSON appears here as events are detected.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ Attack History ════ -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-0">
+      <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
+        <i class="bi bi-clock-history text-indigo-400 text-xs"></i>
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attack History</span>
+        <span id="attacks-badge" class="bg-gray-100 text-gray-600 text-xs rounded-full px-1.5 py-0.5 font-medium hidden">0</span>
+        <span class="ml-auto text-xs text-gray-300 font-mono">trigger log</span>
+      </div>
+      <div id="attacks-feed" class="flex-1 overflow-y-auto min-h-0">
+        <div id="attacks-empty" class="py-12 text-center">
+          <i class="bi bi-clock-history text-3xl text-gray-200"></i>
+          <p class="text-sm text-gray-400 mt-3">No attacks triggered yet.</p>
+          <p class="text-xs text-gray-300 mt-1">Each trigger appears here with a timestamp and response.</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -504,6 +411,7 @@
 
     function updateMitreCoverage() {
       const panel = document.getElementById("mitre-panel");
+      if (!panel) return;
       const coverage = getMitreCoverage();
       panel.textContent = "";
       if (!coverage.length) {
@@ -537,54 +445,32 @@
       });
     }
 
-    // ── Tab switching ─────────────────────────────────────────────────────────
-    let activeTab = "analysis";
-    function switchTab(name) {
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-      document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${name}`));
-      activeTab = name;
-      if (name === "research") renderResearchSummary();
-    }
-
-    // ── Render attack sidebar ─────────────────────────────────────────────────
+    // ── Render compact scenario buttons in the top strip ─────────────────────
     function renderAttacks() {
       const list = document.getElementById("attack-list");
+      if (!list) return;
+      list.textContent = "";
       SCENARIOS.forEach(s => {
         const wrap = document.createElement("div");
-        wrap.className = "px-3 py-3";
+        wrap.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-indigo-50 hover:border-indigo-200 transition-colors flex-shrink-0";
 
-        const header = document.createElement("div");
-        header.className = "flex items-center gap-2 mb-1";
         const icon = document.createElement("i");
-        icon.className = `bi ${s.icon} text-gray-400`;
-        const name = document.createElement("span");
-        name.className = "text-xs font-semibold text-gray-700";
-        name.textContent = s.name;
-        header.append(icon, name);
+        icon.className = `bi ${s.icon} text-gray-400 text-xs`;
 
-        const desc = document.createElement("p");
-        desc.className = "text-xs text-gray-400 leading-snug mb-2 pl-5";
-        desc.textContent = s.desc;
+        const nameEl = document.createElement("span");
+        nameEl.className = "text-xs font-semibold text-gray-700 whitespace-nowrap";
+        nameEl.textContent = s.name;
 
-        const footer = document.createElement("div");
-        footer.className = "flex items-center gap-1.5 pl-5";
-        const tag = document.createElement("span");
-        tag.className = `text-xs px-1.5 py-0.5 rounded font-mono ${s.tagCls}`;
-        tag.textContent = s.tag;
-        if (s.cve) {
-          const cve = document.createElement("span");
-          cve.className = "text-xs text-gray-400 font-mono";
-          cve.textContent = s.cve;
-          footer.append(tag, cve);
-        } else {
-          footer.append(tag);
-        }
+        const tagEl = document.createElement("span");
+        tagEl.className = `text-xs px-1 py-0.5 rounded font-mono ${s.tagCls}`;
+        tagEl.textContent = s.cve || s.tag;
+
         const btn = document.createElement("button");
-        btn.className = "ml-auto text-xs px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-1";
-        btn.innerHTML = '<i class="bi bi-play-fill"></i> Run';
+        btn.className = "text-xs px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-0.5 whitespace-nowrap";
+        btn.innerHTML = '<i class="bi bi-play-fill text-xs"></i> Run';
         btn.addEventListener("click", () => triggerAttack(s.id, btn));
-        footer.appendChild(btn);
-        wrap.append(header, desc, footer);
+
+        wrap.append(icon, nameEl, tagEl, btn);
         list.appendChild(wrap);
       });
     }
@@ -610,37 +496,29 @@
       setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i> Run'; }, 3500);
     }
 
-    // ── Health check ──────────────────────────────────────────────────────────
+    // ── Health check (compact dot row) ───────────────────────────────────────
     async function checkHealth() {
       const list = document.getElementById("health-list");
+      if (!list) return;
       try {
         const r = await fetch("/api/health");
         const data = await r.json();
         list.textContent = "";
         Object.entries(data).forEach(([name, info]) => {
           const ok = ["ok", "ready", "attacking"].includes(info.status);
-          const row = document.createElement("div");
-          row.className = "flex items-center justify-between py-0.5";
+          const dot = document.createElement("div");
+          dot.className = "flex items-center gap-1";
+          dot.title = `${name}: ${info.status}`;
+          const circle = document.createElement("i");
+          circle.className = `bi bi-circle-fill text-xs ${ok ? "text-green-400" : "text-red-400"}`;
           const lbl = document.createElement("span");
-          lbl.className = "text-xs text-gray-600 capitalize";
+          lbl.className = "text-xs text-gray-500 capitalize";
           lbl.textContent = name;
-          const right = document.createElement("div");
-          right.className = "flex items-center gap-1";
-          const dot = document.createElement("i");
-          dot.className = `bi bi-circle-fill text-xs ${ok ? "text-green-400" : "text-red-400"}`;
-          const status = document.createElement("span");
-          status.className = `text-xs font-mono ${ok ? "text-green-600" : "text-red-500"}`;
-          status.textContent = ok ? "ready" : String(info.status);
-          right.append(dot, status);
-          row.append(lbl, right);
-          list.appendChild(row);
+          dot.append(circle, lbl);
+          list.appendChild(dot);
         });
       } catch {
-        list.textContent = "";
-        const err = document.createElement("p");
-        err.className = "text-xs text-red-400";
-        err.textContent = "Health check failed";
-        list.appendChild(err);
+        if (list) list.innerHTML = '<span class="text-xs text-red-400">unreachable</span>';
       }
     }
 
@@ -657,7 +535,6 @@
     function filterByMitre(id) {
       activeMitreFilter = id;
       activeFilter = "all";
-      switchTab("analysis");
       document.querySelectorAll(".filter-chip").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".alert-card").forEach(card => {
         card.classList.toggle("hidden", !card.dataset.mitre.startsWith(id));
@@ -1219,10 +1096,6 @@
         '<i class="bi bi-clock-history text-4xl text-gray-200"></i>' +
         '<p class="text-sm text-gray-400 mt-3">No attacks triggered yet.</p></div>';
 
-      document.getElementById("research-content").innerHTML =
-        '<div class="py-16 text-center">' +
-        '<i class="bi bi-clipboard2-data text-4xl text-gray-200"></i>' +
-        '<p class="text-sm text-gray-400 mt-3">No alerts collected yet. Run some attacks first.</p></div>';
     }
 
     // ── SSE connection ────────────────────────────────────────────────────────
@@ -1428,7 +1301,6 @@
     }
 
     function startStepTimeline(scenario) {
-      switchTab("simulation");
       const steps = SIM_STEPS[scenario];
       if (!steps) return;
 
