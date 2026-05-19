@@ -1,13 +1,13 @@
 - rule: Docker Socket Access from Container
-  desc: A container is connecting to or writing to docker.sock — full Docker Engine API access
+  desc: curl used inside a container to enumerate the Docker Engine API via docker.sock — common first step in socket abuse attacks
   condition: >
-    container and
-    fd.type = "unix" and fd.name contains "docker.sock" and
-    evt.type in (connect, sendto)
+    spawned_process and container and
+    proc.name = "curl" and
+    proc.cmdline contains "docker.sock"
   output: >
-    Docker socket access from container — possible host takeover
+    Docker socket access via curl from container — possible host takeover
     (user=%user.name container=%container.name image=%container.image.repository
-     proc=%proc.cmdline scenario=docker-socket-abuse evt=%evt.type)
+     proc=%proc.cmdline scenario=docker-socket-abuse)
   priority: CRITICAL
   tags: [container, docker_sock, mitre_t1610]
 

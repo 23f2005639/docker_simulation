@@ -8,7 +8,8 @@ _attacking = False
 
 @app.get("/health")
 def health():
-    return jsonify({"status": "ready", "scenario": "sensitive-file-access"})
+    status = "attacking" if _attacking else "ready"
+    return jsonify({"status": status, "scenario": "sensitive-file-access"})
 
 
 @app.post("/trigger")

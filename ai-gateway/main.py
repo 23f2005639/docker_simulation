@@ -32,10 +32,23 @@ async def health():
 
 @app.post("/falco-alert")
 async def falco_alert(request: Request, background_tasks: BackgroundTasks):
-    alert = await request.json()
+    try:
+        alert = await request.json()
+    except Exception:
+        return {"status": "error", "message": "invalid JSON"}, 400
+
+    if not isinstance(alert, dict):
+        return {"status": "error", "message": "expected JSON object"}, 400
+
+    rule = alert.get("rule")
+    if not isinstance(rule, str) or not rule.strip():
+        return {"status": "error", "message": "missing or invalid 'rule' field"}, 400
+    if "<" in rule or ">" in rule:
+        return {"status": "error", "message": "invalid characters in 'rule' field"}, 400
+
     log_falco({"received_at": _now(), "alert": alert})
     background_tasks.add_task(analyze_alert, alert)
-    return {"status": "received", "rule": alert.get("rule")}
+    return {"status": "received", "rule": rule}
 
 
 @app.get("/dashboard")

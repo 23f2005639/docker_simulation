@@ -5,7 +5,8 @@
   condition: >
     container and
     fd.type = "unix" and fd.name contains "docker.sock" and
-    evt.type in (connect, sendto)
+    evt.type in (connect, sendto) and
+    not proc.name = "curl"
   output: >
     CVE-2026-34040 AuthZ bypass attempt — oversized Docker API request
     (container=%container.name user=%user.name proc=%proc.cmdline scenario=authz-bypass evt=%evt.type)

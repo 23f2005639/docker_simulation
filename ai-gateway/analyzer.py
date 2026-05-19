@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timezone
 
 import litellm
@@ -20,12 +21,47 @@ SEVERITY_COLORS = {
 }
 RESET = "\033[0m"
 
+# Falco container.label.scenario is null in this setup because the container
+# plugin doesn't surface Docker labels into Falco output fields. We resolve the
+# scenario from the rule name instead, same as the dashboard does client-side.
+RULE_TO_SCENARIO: dict[str, str] = {
+    "Container Escape via runc fd Leak": "escape",
+    "Docker Socket Access from Container": "sock",
+    "New Privileged Container Created via Socket": "sock",
+    "Lateral Movement via nsenter": "lateral",
+    "Unexpected Internal Network Scan": "lateral",
+    "Sensitive File Read in Container": "secrets",
+    "Process Environment Dump": "secrets",
+    "Docker AuthZ Bypass via Oversized Request": "authz",
+}
+
+_SEVERITY_RE = re.compile(r"\[SEVERITY:\s*(CRITICAL|HIGH|MEDIUM|LOW)\]")
+
+
+def _resolve_scenario(alert: dict) -> str:
+    label = alert.get("output_fields", {}).get("container.label.scenario")
+    if label:
+        return label
+    rule = alert.get("rule", "")
+    for prefix, scenario in RULE_TO_SCENARIO.items():
+        if rule.startswith(prefix):
+            return scenario
+    return alert.get("hostname", "unknown")
+
+
+def _extract_severity(triage_text: str) -> str:
+    m = _SEVERITY_RE.search(triage_text)
+    if m:
+        return m.group(1)
+    # fallback: check for bare keyword (AI didn't follow the format exactly)
+    for lvl in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        if lvl in triage_text:
+            return lvl
+    return "MEDIUM"
+
 
 async def analyze_alert(alert: dict) -> None:
-    scenario = (
-        alert.get("output_fields", {}).get("container.label.scenario")
-        or alert.get("hostname", "unknown")
-    )
+    scenario = _resolve_scenario(alert)
     rule = alert.get("rule", "unknown-rule")
 
     try:
@@ -64,12 +100,7 @@ async def analyze_alert(alert: dict) -> None:
     except json.JSONDecodeError:
         deep_json = {"raw": deep_text}
 
-    severity = "CRITICAL"
-    for lvl in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        if lvl in triage_text:
-            severity = lvl
-            break
-
+    severity = _extract_severity(triage_text)
     color = SEVERITY_COLORS.get(severity, "")
 
     print(f"\n{color}{'='*60}{RESET}")
